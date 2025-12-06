@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Ubuntu', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
@@ -11,16 +10,21 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 100vw;
-  min-height: 100vh;
-  background-color: #0f172a; /* Slate 900 */
-  color: #f8fafc;
-  overflow: hidden; /* Prevent scrolling */
-  user-select: none; /* Prevent text selection */
+  font-family: 'Ubuntu', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0f172a;
+  color: #ffffff;
+  overflow: hidden;
+  /* Prevent scrolling */
+  user-select: none;
+  /* Prevent text selection */
   -webkit-user-select: none;
-  touch-action: none; /* Prevent browser gestures */
+  /* Safari */
+  -webkit-touch-callout: none;
+  /* iOS Safari touch */
+  touch-action: none;
+  /* Prevent browser gestures */
 }
 
 #root {

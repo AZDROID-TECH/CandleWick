@@ -14,28 +14,27 @@ const GameScreen: React.FC = () => {
                 <div className="flex flex-col gap-4">
                     {/* Score */}
                     <div className="flex flex-col">
-                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">{t('score')}</span>
-                        <span className="text-4xl font-mono font-black text-white drop-shadow-md leading-none">{score}</span>
+                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('score')}</span>
+                        <span className="text-2xl font-mono font-black text-white drop-shadow-md leading-none">{score}</span>
                     </div>
 
                     {/* Balance */}
                     <div className="flex flex-col">
-                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">{t('balance')}</span>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-mono font-black text-white drop-shadow-md leading-none">{coins}</span>
-                            <span className="text-lg font-bold text-white drop-shadow-md">AZC</span>
+                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('balance')}</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-mono font-black text-white drop-shadow-md leading-none">{coins}</span>
+                            <span className="text-sm font-bold text-white drop-shadow-md">AZC</span>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Level Display */}
-            {/* Level Display */}
-            <div className="flex flex-col items-end pointer-events-none z-10 absolute top-4 right-4 mt-20">
-                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">{t('level')}</span>
-                <span className="text-4xl font-mono font-black text-yellow-500 drop-shadow-md leading-none">
-                    {Math.min(Math.floor(score / 100) + 1, 15)}
-                </span>
+                {/* Level Display */}
+                <div className="flex flex-col items-end">
+                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('level')}</span>
+                    <span className="text-2xl font-mono font-black text-yellow-500 drop-shadow-md leading-none">
+                        {Math.min(Math.floor(score / 100) + 1, 15)}
+                    </span>
+                </div>
             </div>
 
             {/* Canvas */}
