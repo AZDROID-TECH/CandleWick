@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { endGame, incrementScore, collectCoin } from './gameSlice';
+import { endGame, incrementScore, collectCoin, triggerNews } from './gameSlice';
 import WebApp from '@twa-dev/sdk';
 import AZCashLogo from '../../assets/AZCash.logo.png';
-
+import socialData from '../../data/social_posts.json';
 // Oyun Parametrləri (Game Parameters)
 const GRAVITY = 0.5;
 const LIFT = -0.8;
@@ -11,6 +11,21 @@ const BASE_SCROLL_SPEED = 3;
 const BASE_OBSTACLE_INTERVAL = 2000; // ms
 const CANDLE_WIDTH = 20;
 const CANDLE_HEIGHT = 40;
+
+interface GameState {
+    y: number;
+    velocity: number;
+    isHolding: boolean;
+    obstacles: Obstacle[];
+    items: Item[];
+    trail: { x: number, y: number }[];
+    score: number;
+    obstaclesPassed: number;
+    dailyEarnings: number;
+    obstaclesSinceLastCoin: number;
+    lastObstacleTime: number;
+    difficulty: number;
+}
 
 interface Obstacle {
     x: number;
@@ -37,7 +52,7 @@ const GameCanvas: React.FC = () => {
     const { isPlaying, isGameOver, dailyEarnings } = useAppSelector((state) => state.game);
     const bonusImageRef = useRef<HTMLImageElement>(new Image());
 
-    const gameStateRef = useRef({
+    const gameStateRef = useRef<GameState>({
         y: 200,
         velocity: 0,
         isHolding: false,
@@ -49,7 +64,8 @@ const GameCanvas: React.FC = () => {
         dailyEarnings: 0,
         obstaclesSinceLastCoin: 0, // Bad Luck Protection için sayaç
         lastObstacleTime: 0,
-        difficulty: 1
+        difficulty: 1,
+
     });
 
     const requestRef = useRef<number>();
@@ -123,8 +139,9 @@ const GameCanvas: React.FC = () => {
         const GAP_SIZE = Math.max(250 - (state.difficulty - 1) * 10, 130);
 
         // --- Generator (Generator Logic) ---
+        // --- Generator (Generator Logic) ---
         if (time - state.lastObstacleTime > currentInterval) {
-            state.lastObstacleTime = time;
+            state.lastObstacleTime = time; // RESTORED: This fixed the infinite spawn bug
 
             const minHeight = 50;
             const availableHeight = canvas.height - GAP_SIZE;
@@ -150,10 +167,7 @@ const GameCanvas: React.FC = () => {
             });
 
             // --- Bonus Sistemi (Bonus System) ---
-            // LİMİT KONTROLÜ: Əgər günlük limit dolubsa, heç bir coin çıxmasın!
-            // GÜNCƏLLƏMƏ: "Bad Luck Protection" (Şanssızlık Koruması)
-            // Əgər 3 maneədir coin çıxmırsa, növbəti mütləq coin olsun.
-            // Base chance artırıldı: 25% -> 30%
+            let coinSpawned = false;
 
             const isBelowLimit = state.dailyEarnings < 1000;
             const isLucky = Math.random() < 0.30;
@@ -162,11 +176,10 @@ const GameCanvas: React.FC = () => {
             if (isBelowLimit && (isLucky || isGuaranteed)) {
                 // Reset counter because we spawned a coin
                 state.obstaclesSinceLastCoin = 0;
+                coinSpawned = true;
 
                 // Konum: Boşluğun mərkəzində, bir az sağa-sola sürüşə bilər 
-                // (Position: Center of gap, slightly randomized x)
                 // Dəyər Hesablanması (Level-based Value):
-                // Səviyyəyə görə mükafat miqdarını təyin edirik
                 let bonusValue = 0;
 
                 if (state.difficulty === 1) {
@@ -178,7 +191,6 @@ const GameCanvas: React.FC = () => {
                 } else if (state.difficulty === 4) {
                     bonusValue = Math.floor(Math.random() * 10) + 31; // 31-40 AZC
                 } else {
-                    // Level 5 və yuxarı
                     bonusValue = Math.floor(Math.random() * 10) + 41; // 41-50 AZC
                 }
 
@@ -195,6 +207,41 @@ const GameCanvas: React.FC = () => {
             } else {
                 // Coin çıkmadıysa sayacı artır (Increment counter if no coin)
                 state.obstaclesSinceLastCoin += 1;
+            }
+
+            // --- News Bubble Spawning ---
+            // YALNIZ Coin yoksa ve şans varsa (25%)
+            if (!coinSpawned && state.obstacles.length > 2 && Math.random() < 0.25) {
+                const lastObstacleTop = state.obstacles[state.obstacles.length - 4]; // prev top
+                const currentObstacleTop = state.obstacles[state.obstacles.length - 2]; // current top
+
+                if (lastObstacleTop && currentObstacleTop) {
+                    const oldGapY = lastObstacleTop.height;
+                    const newGapY = currentObstacleTop.height;
+
+                    let trend: 'neutral' | 'bullish' | 'bearish' = 'neutral';
+                    // Check if current gap is HIGHER (smaller Y) or LOWER (larger Y) than previous
+                    if (newGapY < oldGapY - 30) trend = 'bullish'; // Significantly Higher -> Bullish
+                    else if (newGapY > oldGapY + 30) trend = 'bearish'; // Significantly Lower -> Bearish
+
+                    // Filter posts
+                    const relevantPosts = socialData.posts.filter(p => p.sentiment === trend);
+                    // Fallback to neutral if no specific trend posts or just strict trend
+                    const postsToUse = relevantPosts.length > 0 ? relevantPosts : socialData.posts.filter(p => p.sentiment === 'neutral');
+
+                    if (postsToUse.length > 0) {
+                        const randomPost = postsToUse[Math.floor(Math.random() * postsToUse.length)];
+                        // Dispatch to Redux for UI overlay
+                        dispatch(triggerNews({
+                            id: randomPost.id,
+                            text: randomPost.content,
+                            author: randomPost.author,
+                            avatar: randomPost.avatar,
+                            platformId: randomPost.platformId,
+                            sentiment: randomPost.sentiment as 'bullish' | 'bearish' | 'neutral'
+                        }));
+                    }
+                }
             }
         }
 
@@ -301,6 +348,8 @@ const GameCanvas: React.FC = () => {
             ctx.fillRect(obs.x + 5, obs.y, obs.width - 10, obs.height);
             ctx.fillStyle = '#1e293b';
         });
+
+
 
         // --- Bonuslar (Items) ---
         state.items.forEach(item => {

@@ -9,6 +9,14 @@ interface GameState {
     dailyEarnings: number; // Redux state for daily tracking
     dailyHighScore: number;
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
+    currentNews: {
+        id: number;
+        text: string;
+        author: string;
+        avatar?: string | null;
+        platformId: string;
+        sentiment: 'bullish' | 'bearish' | 'neutral';
+    } | null;
 }
 
 const initialState: GameState = {
@@ -20,6 +28,7 @@ const initialState: GameState = {
     dailyEarnings: 0,
     dailyHighScore: 0,
     lastDailyReset: new Date().toISOString(), // Default now
+    currentNews: null
 };
 
 export const gameSlice = createSlice({
@@ -78,10 +87,16 @@ export const gameSlice = createSlice({
             state.dailyEarnings = action.payload.daily_earnings;
             state.dailyHighScore = action.payload.daily_high_score;
             state.lastDailyReset = action.payload.last_daily_reset;
+        },
+        triggerNews: (state, action: PayloadAction<GameState['currentNews']>) => {
+            state.currentNews = action.payload;
+        },
+        clearNews: (state) => {
+            state.currentNews = null;
         }
     },
 });
 
-export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData } = gameSlice.actions;
+export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, triggerNews, clearNews } = gameSlice.actions;
 
 export default gameSlice.reducer;

@@ -1,5 +1,6 @@
 import React from 'react';
 import GameCanvas from '../game/GameCanvas';
+import NewsToast from '../ui/NewsToast';
 import { useAppSelector } from '../../app/hooks';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,7 @@ const GameScreen: React.FC = () => {
 
     return (
         <div className="relative w-full h-full overflow-hidden">
+            <NewsToast />
             {/* HUD */}
             <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start pointer-events-none z-10">
                 <div className="flex flex-col gap-4">
