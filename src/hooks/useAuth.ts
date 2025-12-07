@@ -95,8 +95,8 @@ export const useAuth = () => {
 
                         await setDoc(userRef, {
                             user_id: telegramUser.id,
-                            username: telegramUser.username,
-                            first_name: telegramUser.first_name,
+                            username: telegramUser.username || null, // Firestore crashes on undefined
+                            first_name: telegramUser.first_name || 'Anonymous',
                             total_azc: 0,
                             high_score: 0,
                             daily_earnings: 0,
