@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import db from '../../firebase/db';
 import { FirestoreUser } from '../../types/firestore';
 import WebApp from '@twa-dev/sdk';
@@ -23,8 +23,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 let q;
 
                 if (activeTab === 'daily') {
-                    // Daily High Score (desc)
-                    q = query(usersRef, orderBy('daily_high_score', 'desc'), limit(20));
+                    // Daily High Score (desc) - ONLY for today
+                    // Need to generate US Date string to match how useAuth saves it
+                    const getUSDateString = () => {
+                        return new Date().toLocaleDateString('en-US', {
+                            timeZone: 'America/New_York',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                        });
+                    };
+                    const currentUSDate = getUSDateString();
+
+                    // Filter: Must match today's date AND sort by score
+                    // Note: This requires a Firestore Composite Index (last_daily_reset ASC, daily_high_score DESC)
+                    q = query(
+                        usersRef,
+                        where('last_daily_reset', '==', currentUSDate),
+                        orderBy('daily_high_score', 'desc'),
+                        limit(20)
+                    );
                 } else {
                     // All Time High Score (desc)
                     q = query(usersRef, orderBy('high_score', 'desc'), limit(20));
