@@ -26,7 +26,8 @@ const resources = {
             "level": "Level",
             "hours": "hours",
             "minutes": "minutes",
-            "home": "Home"
+            "home": "Home",
+            "score_only_mode": "Limit Reached - Score Mode Only"
         }
     },
     az: {
@@ -52,7 +53,8 @@ const resources = {
             "level": "Səviyyə",
             "hours": "saat",
             "minutes": "dəqiqə",
-            "home": "Ana Səhifə"
+            "home": "Ana Səhifə",
+            "score_only_mode": "Limit Doldu - Yalnız Xal Modu"
         }
     }
 };

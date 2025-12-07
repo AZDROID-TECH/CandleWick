@@ -34,7 +34,7 @@ interface Item {
 const GameCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const dispatch = useAppDispatch();
-    const { isPlaying, isGameOver } = useAppSelector((state) => state.game);
+    const { isPlaying, isGameOver, dailyEarnings } = useAppSelector((state) => state.game);
     const bonusImageRef = useRef<HTMLImageElement>(new Image());
 
     const gameStateRef = useRef({
@@ -46,6 +46,8 @@ const GameCanvas: React.FC = () => {
         trail: [] as { x: number, y: number }[],
         score: 0,
         obstaclesPassed: 0, // Keçilən maneə sayı (Obstacles passed count)
+        dailyEarnings: 0,
+        obstaclesSinceLastCoin: 0, // Bad Luck Protection için sayaç
         lastObstacleTime: 0,
         difficulty: 1
     });
@@ -76,9 +78,13 @@ const GameCanvas: React.FC = () => {
         };
     }, []);
 
-    // Çətinlik (Difficulty): Artıq xala görə deyil, keçilən maneə sayına görə hesablanır.
     // Difficulty is now calculated by obstacles passed, not score.
     // useEffect for score removed to decouple logic.
+
+    // Sync dailyEarnings to Ref
+    useEffect(() => {
+        gameStateRef.current.dailyEarnings = dailyEarnings;
+    }, [dailyEarnings]);
 
     const update = (time: number) => {
         if (!isPlaying || isGameOver) return;
@@ -144,8 +150,19 @@ const GameCanvas: React.FC = () => {
             });
 
             // --- Bonus Sistemi (Bonus System) ---
-            // Təsadüfi Ehtimal: 25% (Random Chance: 25%)
-            if (Math.random() < 0.25) {
+            // LİMİT KONTROLÜ: Əgər günlük limit dolubsa, heç bir coin çıxmasın!
+            // GÜNCƏLLƏMƏ: "Bad Luck Protection" (Şanssızlık Koruması)
+            // Əgər 3 maneədir coin çıxmırsa, növbəti mütləq coin olsun.
+            // Base chance artırıldı: 25% -> 30%
+
+            const isBelowLimit = state.dailyEarnings < 1000;
+            const isLucky = Math.random() < 0.30;
+            const isGuaranteed = state.obstaclesSinceLastCoin >= 3;
+
+            if (isBelowLimit && (isLucky || isGuaranteed)) {
+                // Reset counter because we spawned a coin
+                state.obstaclesSinceLastCoin = 0;
+
                 // Konum: Boşluğun mərkəzində, bir az sağa-sola sürüşə bilər 
                 // (Position: Center of gap, slightly randomized x)
                 // Dəyər Hesablanması (Level-based Value):
@@ -175,6 +192,9 @@ const GameCanvas: React.FC = () => {
                     type: 'big_bonus',
                     value: bonusValue
                 });
+            } else {
+                // Coin çıkmadıysa sayacı artır (Increment counter if no coin)
+                state.obstaclesSinceLastCoin += 1;
             }
         }
 

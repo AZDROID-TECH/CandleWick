@@ -8,7 +8,7 @@ import WebApp from '@twa-dev/sdk';
 const Home: React.FC = () => {
     const { t, i18n } = useTranslation();
     const dispatch = useAppDispatch();
-    const { highScore, coins, dailyEarnings, lastDailyReset } = useAppSelector(state => state.game);
+    const { highScore, coins, dailyEarnings } = useAppSelector(state => state.game);
     const user = WebApp.initDataUnsafe.user;
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
@@ -17,31 +17,34 @@ const Home: React.FC = () => {
     const isLimitReached = dailyEarnings >= 1000;
 
     useEffect(() => {
-        if (!isLimitReached) return;
-
+        // Timer always runs to show reset time
         const updateTimer = () => {
-            const lastReset = new Date(lastDailyReset).getTime();
-            const nextReset = lastReset + (24 * 60 * 60 * 1000); // +24 hours
-            const now = Date.now();
-            const diff = nextReset - now;
+            const now = new Date();
+            // Calculate US Eastern Midnight
+            // We get current US time string, then build a Date object for "Tomorrow 00:00" in US time?
+            // Simpler: Just calculate remaining minutes in the day based on US time hours/minutes.
 
-            if (diff <= 0) {
-                setTimeLeft("00:00:00");
-                // Refresh page or re-check auth could handle auto-reset, 
-                // but simpler to just show 00 until reload for now.
-            } else {
-                const h = Math.floor(diff / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                // const s = Math.floor((diff % (1000 * 60)) / 1000); 
-                // Müşteri isteği: "20 saat 10 dakika" formatı (Customer request: hour min format)
-                setTimeLeft(`${h} ${t('hours')} ${m} ${t('minutes')}`);
-            }
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: false
+            });
+            const parts = formatter.formatToParts(now);
+            const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+            const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+
+            const hoursLeft = 23 - h;
+            const minutesLeft = 59 - m;
+
+            setTimeLeft(`${hoursLeft} ${t('hours')} ${minutesLeft} ${t('minutes')}`);
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 60000); // Hər dəqiqə yenilə (Update every minute)
+        const interval = setInterval(updateTimer, 60000);
         return () => clearInterval(interval);
-    }, [isLimitReached, lastDailyReset, t]);
+    }, [t]);
 
     const handleStart = () => {
         WebApp.HapticFeedback.impactOccurred('medium');
@@ -57,14 +60,9 @@ const Home: React.FC = () => {
         return <Leaderboard onClose={() => setShowLeaderboard(false)} />;
     }
 
-    // Helper translations just for timer format if needed, 
-    // but simpler to put hours/min inside the string or separate keys.
-    // Let's assume standard 'h' 'm' or full words. 
-    // Added crude manual translation for "hours" "minutes" below or use specific keys.
-
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-slate-900/90 backdrop-blur-sm">
-            {/* ... (Header) ... */}
+            {/* ... Header ... */}
             <div className="absolute top-4 right-4 flex gap-2">
                 <button onClick={() => changeLanguage('en')} className={`px-2 py-1 rounded ${i18n.language === 'en' ? 'bg-slate-600 text-white' : 'text-slate-500'}`}>EN</button>
                 <button onClick={() => changeLanguage('az')} className={`px-2 py-1 rounded ${i18n.language === 'az' ? 'bg-slate-600 text-white' : 'text-slate-500'}`}>AZ</button>
@@ -89,20 +87,25 @@ const Home: React.FC = () => {
                     </div>
                 </div>
 
-                {isLimitReached ? (
-                    <div className="w-full py-4 bg-red-500/20 border border-red-500 text-red-100 rounded-xl mb-4 text-center">
-                        <div className="font-bold text-lg mb-1">{t('daily_limit_reached')}</div>
-                        <div className="text-sm opacity-80">{t('time_left')}:</div>
-                        <div className="font-mono text-xl font-black text-white">{timeLeft}</div>
+                {/* Status Badge: Show if limit reached, but DON'T block start button below */}
+                {isLimitReached && (
+                    <div className="w-full py-2 bg-yellow-500/20 border border-yellow-500 text-yellow-100 rounded-lg mb-4 text-center text-xs">
+                        <div className="font-bold">{t('score_only_mode')}</div>
+                        <div className="opacity-80">{t('time_left')}: {timeLeft}</div>
                     </div>
-                ) : (
-                    <button
-                        onClick={handleStart}
-                        className="w-full py-4 bg-green-500 hover:bg-green-400 text-white font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all transform hover:scale-105 active:scale-95 mb-4"
-                    >
-                        {t('start_game')}
-                    </button>
                 )}
+
+                {/* Start Button: Always visible now */}
+                <button
+                    onClick={handleStart}
+                    className={`w-full py-4 font-bold text-xl rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 mb-4 
+                        ${isLimitReached
+                            ? 'bg-slate-600 hover:bg-slate-500 text-slate-200'
+                            : 'bg-green-500 hover:bg-green-400 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                        }`}
+                >
+                    {t('start_game')}
+                </button>
 
                 <div className="grid grid-cols-2 gap-3">
                     {/* ... buttons ... */}

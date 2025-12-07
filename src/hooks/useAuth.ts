@@ -28,20 +28,35 @@ export const useAuth = () => {
                         // Load data
                         const data = userSnap.data();
 
-                        // Check Daily Limit Reset
-                        const lastReset = data.last_daily_reset ? new Date(data.last_daily_reset).getTime() : 0;
-                        const now = Date.now();
-                        const hoursSinceReset = (now - lastReset) / (1000 * 60 * 60);
+                        // Check Daily Limit Reset (Fixed Time: US/Eastern 00:00)
+
+                        // Get current date string in US Eastern time (e.g., "12/7/2025")
+                        const getUSDateString = () => {
+                            return new Date().toLocaleDateString('en-US', {
+                                timeZone: 'America/New_York',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                            });
+                        };
+
+                        const currentUSDate = getUSDateString();
+                        const storedResetDate = data.last_daily_reset || "";
+
+                        // If stored date is different from current US date, trigger reset
+                        // (This handles the transition from ISO string to Date string naturally as they won't match)
+                        const shouldReset = storedResetDate !== currentUSDate;
 
                         let currentDailyEarnings = data.daily_earnings || 0;
                         let currentDailyHighScore = data.daily_high_score || 0;
-                        let newLastReset = data.last_daily_reset;
+                        let newLastReset = storedResetDate;
 
-                        if (hoursSinceReset >= 24) {
-                            // Reset daily earnings and high score
+                        if (shouldReset) {
+                            // Reset daily earnings and high score for the new day
                             currentDailyEarnings = 0;
                             currentDailyHighScore = 0;
-                            newLastReset = new Date().toISOString();
+                            newLastReset = currentUSDate;
+
                             await updateDoc(userRef, {
                                 daily_earnings: 0,
                                 daily_high_score: 0,
@@ -49,13 +64,14 @@ export const useAuth = () => {
                                 last_login: new Date().toISOString()
                             });
                         } else {
+                            // Same day, just update login time
                             await updateDoc(userRef, {
                                 last_login: new Date().toISOString()
                             });
                         }
 
                         dispatch(setHighScore(data.high_score || 0));
-                        // Use specialized action to set initial state correctly
+                        // Sync User Data
                         dispatch(setUserData({
                             total_azc: data.total_azc || 0,
                             daily_earnings: currentDailyEarnings,
@@ -65,6 +81,18 @@ export const useAuth = () => {
                     } else {
                         // Create new user
                         const nowISO = new Date().toISOString();
+
+                        // Use correct US Date for initial reset field
+                        const getUSDateString = () => {
+                            return new Date().toLocaleDateString('en-US', {
+                                timeZone: 'America/New_York',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                            });
+                        };
+                        const usDate = getUSDateString();
+
                         await setDoc(userRef, {
                             user_id: telegramUser.id,
                             username: telegramUser.username,
@@ -73,7 +101,7 @@ export const useAuth = () => {
                             high_score: 0,
                             daily_earnings: 0,
                             daily_high_score: 0,
-                            last_daily_reset: nowISO,
+                            last_daily_reset: usDate,
                             referrals: [],
                             completed_tasks: [],
                             created_at: nowISO,
@@ -84,7 +112,7 @@ export const useAuth = () => {
                             total_azc: 0,
                             daily_earnings: 0,
                             daily_high_score: 0,
-                            last_daily_reset: nowISO
+                            last_daily_reset: usDate
                         }));
                     }
                 }
