@@ -9,6 +9,7 @@ interface GameState {
     dailyEarnings: number; // Redux state for daily tracking
     dailyHighScore: number;
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
+    adWatchCount: number;
     currentNews: {
         id: number;
         text: string;
@@ -28,6 +29,7 @@ const initialState: GameState = {
     dailyEarnings: 0,
     dailyHighScore: 0,
     lastDailyReset: new Date().toISOString(), // Default now
+    adWatchCount: 0,
     currentNews: null
 };
 
@@ -39,6 +41,7 @@ export const gameSlice = createSlice({
             state.isPlaying = true;
             state.isGameOver = false;
             state.score = 0;
+            state.adWatchCount = 0;
         },
         endGame: (state) => {
             state.isPlaying = false;
@@ -93,10 +96,18 @@ export const gameSlice = createSlice({
         },
         clearNews: (state) => {
             state.currentNews = null;
+        },
+        continueGame: (state) => {
+            state.isPlaying = true;
+            state.isGameOver = false;
+            state.adWatchCount += 1;
+            // Optionally move player up slightly/safety? Handled in Canvas logic or just resumes.
+            // GameCanvas uses refs, so we might need to handle safety there if needed, 
+            // but just unpausing (isPlaying=true) resumes the loop.
         }
     },
 });
 
-export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, triggerNews, clearNews } = gameSlice.actions;
+export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, triggerNews, clearNews, continueGame } = gameSlice.actions;
 
 export default gameSlice.reducer;
