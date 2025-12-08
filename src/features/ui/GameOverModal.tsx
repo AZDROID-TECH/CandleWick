@@ -9,7 +9,10 @@ const GameOverModal: React.FC = () => {
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
     const handleWatchAd = async () => {
-        const AdController = (window as any).Adsgram?.init({ blockId: "18830" });
+        const AdController = (window as any).Adsgram?.init({
+            blockId: "18830",
+            debug: true // Enable debug mode to see test ads
+        });
         if (AdController) {
             AdController.show().then(() => {
                 // user listen your ad till the end
