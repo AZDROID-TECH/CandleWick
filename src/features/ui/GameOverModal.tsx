@@ -29,7 +29,7 @@ const GameOverModal: React.FC = () => {
             if (!(window as any).Adsgram) throw new Error("Adsgram object not found after load");
 
             const AdController = (window as any).Adsgram.init({
-                blockId: "18830",
+                blockId: "18924",
                 debug: true // Enable debug mode
             });
 
