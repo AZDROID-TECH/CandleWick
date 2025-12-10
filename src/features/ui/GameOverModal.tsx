@@ -9,10 +9,13 @@ const GameOverModal: React.FC = () => {
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
     const handleWatchAd = async () => {
+        console.log("Checking window.Adsgram:", (window as any).Adsgram);
+
         const AdController = (window as any).Adsgram?.init({
             blockId: "18830",
             debug: true // Enable debug mode to see test ads
         });
+
         if (AdController) {
             AdController.show().then(() => {
                 // user listen your ad till the end
@@ -20,10 +23,10 @@ const GameOverModal: React.FC = () => {
             }).catch((result: any) => {
                 // user skip ad or get error 
                 console.log('Adsgram error or skip:', result);
-                // Optionally show a toast "Ad failed"
             });
         } else {
-            console.error("Adsgram script not loaded");
+            console.error("Adsgram script logic failed. window.Adsgram is:", (window as any).Adsgram);
+            alert("Adsgram script not loaded. Check Network tab.");
         }
     };
 
@@ -61,7 +64,7 @@ const GameOverModal: React.FC = () => {
                     {remainingAds > 0 ? (
                         <button
                             onClick={handleWatchAd}
-                            className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-yellow-600 hover:bg-yellow-500 rounded-lg font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-yellow-600/20 transition-colors"
                         >
                             <i className='bx bxs-video text-white'></i> {t('watch_ad')} ({remainingAds})
                         </button>
