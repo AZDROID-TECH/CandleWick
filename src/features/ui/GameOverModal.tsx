@@ -9,14 +9,30 @@ const GameOverModal: React.FC = () => {
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
     const handleWatchAd = async () => {
-        console.log("Checking window.Adsgram:", (window as any).Adsgram);
+        const loadScript = () => {
+            return new Promise<void>((resolve, reject) => {
+                if ((window as any).Adsgram) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = "https://adsgram.ai/js/adsgram.js?v=1";
+                script.async = true;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error("Adsgram script failed to load"));
+                document.body.appendChild(script);
+            });
+        };
 
-        const AdController = (window as any).Adsgram?.init({
-            blockId: "18830",
-            debug: true // Enable debug mode to see test ads
-        });
+        try {
+            await loadScript();
+            if (!(window as any).Adsgram) throw new Error("Adsgram object not found after load");
 
-        if (AdController) {
+            const AdController = (window as any).Adsgram.init({
+                blockId: "18830",
+                debug: true // Enable debug mode
+            });
+
             AdController.show().then(() => {
                 // user listen your ad till the end
                 dispatch(continueGame());
@@ -24,9 +40,10 @@ const GameOverModal: React.FC = () => {
                 // user skip ad or get error 
                 console.log('Adsgram error or skip:', result);
             });
-        } else {
-            console.error("Adsgram script logic failed. window.Adsgram is:", (window as any).Adsgram);
-            alert("Adsgram script not loaded. Check Network tab.");
+
+        } catch (error) {
+            console.error(error);
+            alert(`Ad Error: ${(error as Error).message}`);
         }
     };
 
