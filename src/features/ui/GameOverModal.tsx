@@ -28,9 +28,16 @@ const GameOverModal: React.FC = () => {
             await loadScript();
             if (!(window as any).Adsgram) throw new Error("Adsgram object not found after load");
 
+            const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID;
+            if (!blockId) {
+                console.error("VITE_TELEGRAM_BLOCK_ID is not defined in .env");
+                alert("Ad configuration missing.");
+                return;
+            }
+
             const AdController = (window as any).Adsgram.init({
-                blockId: "18956",
-                debug: true // Enable debug mode
+                blockId: blockId,
+                debug: false // Production mode
             });
 
             AdController.show().then(() => {

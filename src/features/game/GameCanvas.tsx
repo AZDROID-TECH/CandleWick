@@ -24,6 +24,7 @@ interface GameState {
     dailyEarnings: number;
     obstaclesSinceLastCoin: number;
     lastObstacleTime: number;
+    lastFrameTime: number; // For Delta Time calculation
     difficulty: number;
 }
 
@@ -64,6 +65,7 @@ const GameCanvas: React.FC = () => {
         dailyEarnings: 0,
         obstaclesSinceLastCoin: 0, // Bad Luck Protection için sayaç
         lastObstacleTime: 0,
+        lastFrameTime: 0,
         difficulty: 1,
 
     });
@@ -109,14 +111,29 @@ const GameCanvas: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // --- Fizika (Physics) ---
-        if (state.isHolding) {
-            state.velocity += LIFT;
-        } else {
-            state.velocity += GRAVITY;
+        // --- Delta Time Hesablaması (Delta Time Calculation) ---
+        // 60FPS baza alınır (Based on 60FPS, 16.67ms)
+        let delta = (time - state.lastFrameTime) / 16.67;
+
+        // İlk frame və ya böyük gecikmə (First frame or lag spike protection)
+        if (state.lastFrameTime === 0 || delta > 4) {
+            delta = 1;
         }
-        state.velocity = Math.max(Math.min(state.velocity, 8), -8);
-        state.y += state.velocity;
+        state.lastFrameTime = time;
+
+        // --- Fizika (Physics) ---
+        // Sürət dəyişimi delta ilə vurulur (Velocity change multiplied by delta)
+        if (state.isHolding) {
+            state.velocity += LIFT * delta;
+        } else {
+            state.velocity += GRAVITY * delta;
+        }
+
+        // Terminal sürət (Max speed)
+        state.velocity = Math.max(Math.min(state.velocity, 10), -10);
+
+        // Mövqe dəyişimi (Position change)
+        state.y += state.velocity * delta;
 
         // Sərhədlər (Boundaries)
         if (state.y < 0) { state.y = 0; state.velocity = 0; }
@@ -138,7 +155,6 @@ const GameCanvas: React.FC = () => {
         // Min 130px-ə qədər düşür (çox dar)
         const GAP_SIZE = Math.max(250 - (state.difficulty - 1) * 10, 130);
 
-        // --- Generator (Generator Logic) ---
         // --- Generator (Generator Logic) ---
         if (time - state.lastObstacleTime > currentInterval) {
             state.lastObstacleTime = time; // RESTORED: This fixed the infinite spawn bug
@@ -246,8 +262,8 @@ const GameCanvas: React.FC = () => {
         }
 
         // --- Hərəkət və Təmizlik (Movement & Cleanup) ---
-        state.obstacles.forEach(obs => obs.x -= currentSpeed);
-        state.items.forEach(item => item.x -= currentSpeed);
+        state.obstacles.forEach(obs => obs.x -= currentSpeed * delta);
+        state.items.forEach(item => item.x -= currentSpeed * delta);
 
         state.obstacles = state.obstacles.filter(obs => obs.x + obs.width > -100);
         state.items = state.items.filter(item => item.x > -100 && !item.collected);
