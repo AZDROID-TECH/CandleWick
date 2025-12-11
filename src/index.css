@@ -16,6 +16,8 @@ body {
   background-color: #0f172a;
   color: #ffffff;
   overflow: hidden;
+  /* Prevent rubber-banding */
+  overscroll-behavior: none;
   /* Prevent scrolling */
   user-select: none;
   /* Prevent text selection */
@@ -25,6 +27,7 @@ body {
   /* iOS Safari touch */
   touch-action: none;
   /* Prevent browser gestures */
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {

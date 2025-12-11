@@ -78,19 +78,35 @@ const GameCanvas: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const handleTouchStart = () => { gameStateRef.current.isHolding = true; };
-        const handleTouchEnd = () => { gameStateRef.current.isHolding = false; };
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Touch Events (Canvas Only - Fixes iOS Scroll/Zoom/Bubble)
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.cancelable) e.preventDefault();
+            gameStateRef.current.isHolding = true;
+        };
+        const handleTouchEnd = (e: TouchEvent) => {
+            if (e.cancelable) e.preventDefault();
+            gameStateRef.current.isHolding = false;
+        };
+
+        // Mouse Events (Window - Desktop Experience)
         const handleMouseDown = () => { gameStateRef.current.isHolding = true; };
         const handleMouseUp = () => { gameStateRef.current.isHolding = false; };
 
-        window.addEventListener('touchstart', handleTouchStart);
-        window.addEventListener('touchend', handleTouchEnd);
+        // Attach touch to canvas with non-passive to allow preventDefault
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        // Prevent default touch actions (scrolling) on the canvas
+        canvas.style.touchAction = 'none';
+
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
 
         return () => {
-            window.removeEventListener('touchstart', handleTouchStart);
-            window.removeEventListener('touchend', handleTouchEnd);
+            canvas.removeEventListener('touchstart', handleTouchStart);
+            canvas.removeEventListener('touchend', handleTouchEnd);
             window.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mouseup', handleMouseUp);
         };
