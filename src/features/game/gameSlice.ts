@@ -10,14 +10,8 @@ interface GameState {
     dailyHighScore: number;
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
     adWatchCount: number;
-    currentNews: {
-        id: number;
-        text: string;
-        author: string;
-        avatar?: string | null;
-        platformId: string;
-        sentiment: 'bullish' | 'bearish' | 'neutral';
-    } | null;
+    isLoading: boolean;
+    difficulty: number;
 }
 
 const initialState: GameState = {
@@ -30,7 +24,8 @@ const initialState: GameState = {
     dailyHighScore: 0,
     lastDailyReset: new Date().toISOString(), // Default now
     adWatchCount: 0,
-    currentNews: null
+    isLoading: true,
+    difficulty: 1,
 };
 
 export const gameSlice = createSlice({
@@ -42,6 +37,7 @@ export const gameSlice = createSlice({
             state.isGameOver = false;
             state.score = 0;
             state.adWatchCount = 0;
+            state.difficulty = 1;
         },
         endGame: (state) => {
             state.isPlaying = false;
@@ -81,6 +77,7 @@ export const gameSlice = createSlice({
             state.isPlaying = false;
             state.isGameOver = false;
             state.score = 0;
+            state.difficulty = 1;
         },
         setHighScore: (state, action: PayloadAction<number>) => {
             state.highScore = action.payload;
@@ -90,12 +87,10 @@ export const gameSlice = createSlice({
             state.dailyEarnings = action.payload.daily_earnings;
             state.dailyHighScore = action.payload.daily_high_score;
             state.lastDailyReset = action.payload.last_daily_reset;
+            state.isLoading = false;
         },
-        triggerNews: (state, action: PayloadAction<GameState['currentNews']>) => {
-            state.currentNews = action.payload;
-        },
-        clearNews: (state) => {
-            state.currentNews = null;
+        setDifficulty: (state, action: PayloadAction<number>) => {
+            state.difficulty = action.payload;
         },
         continueGame: (state) => {
             state.isPlaying = true;
@@ -108,6 +103,6 @@ export const gameSlice = createSlice({
     },
 });
 
-export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, triggerNews, clearNews, continueGame } = gameSlice.actions;
+export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, continueGame, setDifficulty } = gameSlice.actions;
 
 export default gameSlice.reducer;

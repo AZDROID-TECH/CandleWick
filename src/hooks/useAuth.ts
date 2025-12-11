@@ -115,6 +115,15 @@ export const useAuth = () => {
                             last_daily_reset: usDate
                         }));
                     }
+                } else {
+                    // Fallback for browser/dev testing
+                    console.log("No Telegram user detected, loading mock data.");
+                    dispatch(setUserData({
+                        total_azc: 0,
+                        daily_earnings: 0,
+                        daily_high_score: 0,
+                        last_daily_reset: new Date().toISOString()
+                    }));
                 }
             } catch (error) {
                 console.error("Auth failed", error);

@@ -1,46 +1,37 @@
 import React from 'react';
 import GameCanvas from '../game/GameCanvas';
-import NewsToast from '../ui/NewsToast';
+import AZCashLogo from '../../assets/AZCash.logo.png';
 import { useAppSelector } from '../../app/hooks';
 import { useTranslation } from 'react-i18next';
 
 const GameScreen: React.FC = () => {
-    const { score, coins } = useAppSelector(state => state.game);
+    const { score, coins, dailyEarnings, difficulty } = useAppSelector(state => state.game);
     const { t } = useTranslation();
 
     return (
-        <div className="relative w-full h-full overflow-hidden">
-            <NewsToast />
-            {/* HUD */}
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start pointer-events-none z-10">
-                <div className="flex flex-col gap-4">
-                    {/* Score */}
-                    <div className="flex flex-col">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('score')}</span>
-                        <span className="text-2xl font-mono font-black text-white drop-shadow-md leading-none">{score}</span>
-                    </div>
+        <div className="relative w-full h-full overflow-hidden bg-slate-900">
+            <GameCanvas />
 
-                    {/* Balance */}
-                    <div className="flex flex-col">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('balance')}</span>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-mono font-black text-white drop-shadow-md leading-none">{coins}</span>
-                            <span className="text-sm font-bold text-white drop-shadow-md">AZC</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Level Display */}
-                <div className="flex flex-col items-end">
-                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{t('level')}</span>
-                    <span className="text-2xl font-mono font-black text-yellow-500 drop-shadow-md leading-none">
-                        {Math.min(Math.floor(score / 100) + 1, 15)}
-                    </span>
-                </div>
+            <div className="absolute top-4 left-4 z-10 font-mono font-bold text-white drop-shadow-md pointer-events-none select-none">
+                <div className="text-4xl text-yellow-400">{Math.floor(score)}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-widest">{t('score')}</div>
             </div>
 
-            {/* Canvas */}
-            <GameCanvas />
+            <div className="absolute top-4 right-4 z-10 flex flex-col items-end pointer-events-none select-none">
+                <div className="mb-2">
+                    <span className="bg-blue-600/80 border border-blue-400/50 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                        LVL {difficulty}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-3 py-1 rounded-full border border-yellow-500/30">
+                    <img src={AZCashLogo} alt="AZC" className="w-5 h-5" />
+                    <span className="font-bold text-yellow-400">{coins}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-1">
+                    Daily: {dailyEarnings}/1000
+                </div>
+            </div>
         </div>
     );
 };

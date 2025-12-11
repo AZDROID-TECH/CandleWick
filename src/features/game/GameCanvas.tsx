@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { endGame, incrementScore, collectCoin, triggerNews } from './gameSlice';
+import { endGame, incrementScore, collectCoin, setDifficulty } from './gameSlice';
 import WebApp from '@twa-dev/sdk';
 import AZCashLogo from '../../assets/AZCash.logo.png';
-import socialData from '../../data/social_posts.json';
 // Oyun Parametrləri (Game Parameters)
 const GRAVITY = 0.5;
 const LIFT = -0.8;
@@ -24,7 +23,7 @@ interface GameState {
     dailyEarnings: number;
     obstaclesSinceLastCoin: number;
     lastObstacleTime: number;
-    lastFrameTime: number; // For Delta Time calculation
+    lastFrameTime: number;
     difficulty: number;
 }
 
@@ -34,6 +33,7 @@ interface Obstacle {
     width: number;
     height: number;
     passed: boolean;
+    trend: 'bull' | 'bear' | 'neutral';
 }
 
 interface Item {
@@ -71,6 +71,7 @@ const GameCanvas: React.FC = () => {
     });
 
     const requestRef = useRef<number>();
+    const lastTouchTimeRef = useRef<number>(0);
 
     // Şəkillərin yüklənməsi (Load images)
     useEffect(() => {
@@ -81,39 +82,57 @@ const GameCanvas: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        // Set initial size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
         // Touch Events (Canvas Only - Fixes iOS Scroll/Zoom/Bubble)
         const handleTouchStart = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
             gameStateRef.current.isHolding = true;
+            lastTouchTimeRef.current = Date.now();
         };
         const handleTouchEnd = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
             gameStateRef.current.isHolding = false;
+            lastTouchTimeRef.current = Date.now();
         };
 
         // Mouse Events (Window - Desktop Experience)
-        const handleMouseDown = () => { gameStateRef.current.isHolding = true; };
-        const handleMouseUp = () => { gameStateRef.current.isHolding = false; };
+        const handleMouseDown = () => {
+            // Ignore if touch was recently used (Ghost Click Prevention)
+            if (Date.now() - lastTouchTimeRef.current < 500) return;
+            gameStateRef.current.isHolding = true;
+        };
+        const handleMouseUp = () => {
+            if (Date.now() - lastTouchTimeRef.current < 500) return;
+            gameStateRef.current.isHolding = false;
+        };
+
+        // Prevent Global Scroll (Rubber Banding)
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.cancelable) e.preventDefault();
+        };
 
         // Attach touch to canvas with non-passive to allow preventDefault
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
         canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
         // Prevent default touch actions (scrolling) on the canvas
         canvas.style.touchAction = 'none';
 
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
         return () => {
             canvas.removeEventListener('touchstart', handleTouchStart);
             canvas.removeEventListener('touchend', handleTouchEnd);
             window.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('touchmove', handleTouchMove);
         };
     }, []);
-
-    // Difficulty is now calculated by obstacles passed, not score.
-    // useEffect for score removed to decouple logic.
 
     // Sync dailyEarnings to Ref
     useEffect(() => {
@@ -127,29 +146,28 @@ const GameCanvas: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // --- Delta Time Hesablaması (Delta Time Calculation) ---
-        // 60FPS baza alınır (Based on 60FPS, 16.67ms)
-        let delta = (time - state.lastFrameTime) / 16.67;
-
-        // İlk frame və ya böyük gecikmə (First frame or lag spike protection)
-        if (state.lastFrameTime === 0 || delta > 4) {
-            delta = 1;
+        // --- Delta Time Calculation ---
+        let multiplier = 1;
+        if (state.lastFrameTime !== 0) {
+            const dt = time - state.lastFrameTime;
+            multiplier = dt / 16.666;
+            // Cap multiplier to prevent huge jumps (lag protection)
+            if (multiplier > 3) multiplier = 1;
         }
         state.lastFrameTime = time;
 
         // --- Fizika (Physics) ---
-        // Sürət dəyişimi delta ilə vurulur (Velocity change multiplied by delta)
         if (state.isHolding) {
-            state.velocity += LIFT * delta;
+            state.velocity += LIFT * multiplier;
         } else {
-            state.velocity += GRAVITY * delta;
+            state.velocity += GRAVITY * multiplier;
         }
 
         // Terminal sürət (Max speed)
-        state.velocity = Math.max(Math.min(state.velocity, 10), -10);
+        state.velocity = Math.max(Math.min(state.velocity, 8), -8);
 
         // Mövqe dəyişimi (Position change)
-        state.y += state.velocity * delta;
+        state.y += state.velocity * multiplier;
 
         // Sərhədlər (Boundaries)
         if (state.y < 0) { state.y = 0; state.velocity = 0; }
@@ -171,7 +189,7 @@ const GameCanvas: React.FC = () => {
         // Min 130px-ə qədər düşür (çox dar)
         const GAP_SIZE = Math.max(250 - (state.difficulty - 1) * 10, 130);
 
-        // --- Generator (Generator Logic) ---
+        // --- Generator (Generator Logic - Time Based, No Multiplier Needed) ---
         if (time - state.lastObstacleTime > currentInterval) {
             state.lastObstacleTime = time; // RESTORED: This fixed the infinite spawn bug
 
@@ -182,25 +200,40 @@ const GameCanvas: React.FC = () => {
             const bottomY = topHeight + GAP_SIZE;
             const bottomHeight = canvas.height - bottomY;
 
+            // --- Trend Logic for Colors ---
+            let trend: 'bull' | 'bear' | 'neutral' = 'neutral';
+            if (state.obstacles.length >= 2) {
+                const lastTop = state.obstacles[state.obstacles.length - 2];
+                // Moving UP (Y gets smaller) => Bullish (Green)
+                // Moving DOWN (Y gets larger) => Bearish (Red)
+                if (topHeight < lastTop.height - 5) {
+                    trend = 'bull';
+                } else if (topHeight > lastTop.height + 5) {
+                    trend = 'bear';
+                } else {
+                    trend = lastTop.trend; // Maintain previous trend if flat
+                }
+            }
+
             // Qoşa Maneələr (Dual Obstacles)
             state.obstacles.push({
                 x: canvas.width,
                 y: 0,
                 width: 50,
                 height: topHeight,
-                passed: false
+                passed: false,
+                trend: trend
             });
             state.obstacles.push({
                 x: canvas.width,
                 y: bottomY,
                 width: 50,
                 height: bottomHeight,
-                passed: false
+                passed: false,
+                trend: trend
             });
 
             // --- Bonus Sistemi (Bonus System) ---
-            let coinSpawned = false;
-
             const isBelowLimit = state.dailyEarnings < 1000;
             const isLucky = Math.random() < 0.30;
             const isGuaranteed = state.obstaclesSinceLastCoin >= 3;
@@ -208,7 +241,6 @@ const GameCanvas: React.FC = () => {
             if (isBelowLimit && (isLucky || isGuaranteed)) {
                 // Reset counter because we spawned a coin
                 state.obstaclesSinceLastCoin = 0;
-                coinSpawned = true;
 
                 // Konum: Boşluğun mərkəzində, bir az sağa-sola sürüşə bilər 
                 // Dəyər Hesablanması (Level-based Value):
@@ -240,46 +272,11 @@ const GameCanvas: React.FC = () => {
                 // Coin çıkmadıysa sayacı artır (Increment counter if no coin)
                 state.obstaclesSinceLastCoin += 1;
             }
-
-            // --- News Bubble Spawning ---
-            // YALNIZ Coin yoksa ve şans varsa (25%)
-            if (!coinSpawned && state.obstacles.length > 2 && Math.random() < 0.25) {
-                const lastObstacleTop = state.obstacles[state.obstacles.length - 4]; // prev top
-                const currentObstacleTop = state.obstacles[state.obstacles.length - 2]; // current top
-
-                if (lastObstacleTop && currentObstacleTop) {
-                    const oldGapY = lastObstacleTop.height;
-                    const newGapY = currentObstacleTop.height;
-
-                    let trend: 'neutral' | 'bullish' | 'bearish' = 'neutral';
-                    // Check if current gap is HIGHER (smaller Y) or LOWER (larger Y) than previous
-                    if (newGapY < oldGapY - 30) trend = 'bullish'; // Significantly Higher -> Bullish
-                    else if (newGapY > oldGapY + 30) trend = 'bearish'; // Significantly Lower -> Bearish
-
-                    // Filter posts
-                    const relevantPosts = socialData.posts.filter(p => p.sentiment === trend);
-                    // Fallback to neutral if no specific trend posts or just strict trend
-                    const postsToUse = relevantPosts.length > 0 ? relevantPosts : socialData.posts.filter(p => p.sentiment === 'neutral');
-
-                    if (postsToUse.length > 0) {
-                        const randomPost = postsToUse[Math.floor(Math.random() * postsToUse.length)];
-                        // Dispatch to Redux for UI overlay
-                        dispatch(triggerNews({
-                            id: randomPost.id,
-                            text: randomPost.content,
-                            author: randomPost.author,
-                            avatar: randomPost.avatar,
-                            platformId: randomPost.platformId,
-                            sentiment: randomPost.sentiment as 'bullish' | 'bearish' | 'neutral'
-                        }));
-                    }
-                }
-            }
         }
 
-        // --- Hərəkət və Təmizlik (Movement & Cleanup) ---
-        state.obstacles.forEach(obs => obs.x -= currentSpeed * delta);
-        state.items.forEach(item => item.x -= currentSpeed * delta);
+        // --- Hərəkət və Təmizlik (Movement & Cleanup - Apply Multiplier) ---
+        state.obstacles.forEach(obs => obs.x -= currentSpeed * multiplier);
+        state.items.forEach(item => item.x -= currentSpeed * multiplier);
 
         state.obstacles = state.obstacles.filter(obs => obs.x + obs.width > -100);
         state.items = state.items.filter(item => item.x > -100 && !item.collected);
@@ -307,7 +304,13 @@ const GameCanvas: React.FC = () => {
 
                 // Çətinlik yeniləməsi: Hər 10 maneə = 1 Səviyyə
                 // Update Difficulty: Every 10 obstacles = 1 Level
-                state.difficulty = Math.min(Math.floor(state.obstaclesPassed / 10) + 1, 15);
+                // Çətinlik yeniləməsi: Hər 10 maneə = 1 Səviyyə
+                // Update Difficulty: Every 10 obstacles = 1 Level
+                const newDifficulty = Math.min(Math.floor(state.obstaclesPassed / 10) + 1, 15);
+                if (newDifficulty !== state.difficulty) {
+                    state.difficulty = newDifficulty;
+                    dispatch(setDifficulty(newDifficulty));
+                }
 
                 const points = 10;
                 dispatch(incrementScore(points));
@@ -369,16 +372,30 @@ const GameCanvas: React.FC = () => {
         ctx.stroke();
 
         // --- Maneələr (Obstacles) ---
-        ctx.fillStyle = '#1e293b';
-        ctx.strokeStyle = '#f59e0b';
         state.obstacles.forEach(obs => {
+            let strokeColor = '#64748b'; // Neutral Slate
+            let fillColor = 'rgba(148, 163, 184, 0.1)';
+
+            if (obs.trend === 'bull') {
+                strokeColor = '#22c55e'; // Green
+                fillColor = 'rgba(34, 197, 94, 0.2)';
+            } else if (obs.trend === 'bear') {
+                strokeColor = '#ef4444'; // Red
+                fillColor = 'rgba(239, 68, 68, 0.2)';
+            }
+
+            // Base Background
+            ctx.fillStyle = '#0f172a';
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+            // Tinted Background
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+            // Border
+            ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
             ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
-
-            ctx.fillStyle = 'rgba(245, 158, 11, 0.1)';
-            ctx.fillRect(obs.x + 5, obs.y, obs.width - 10, obs.height);
-            ctx.fillStyle = '#1e293b';
         });
 
 
@@ -447,6 +464,7 @@ const GameCanvas: React.FC = () => {
 
     useEffect(() => {
         if (isPlaying && !isGameOver) {
+            gameStateRef.current.lastFrameTime = 0;
             requestRef.current = requestAnimationFrame(update);
         } else {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
@@ -464,11 +482,16 @@ const GameCanvas: React.FC = () => {
     return (
         <canvas
             ref={canvasRef}
-            width={window.innerWidth}
-            height={window.innerHeight}
             className="block touch-none"
+            style={{
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                outline: 'none'
+            }}
         />
     );
 };
 
-export default GameCanvas;
+export default React.memo(GameCanvas);
