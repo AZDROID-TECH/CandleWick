@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getCurrentWeekId, getTimeUntilWeeklyReset, formatTimeRemaining } from '../../utils/dateUtils';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import db from '../../firebase/db';
 import { FirestoreUser } from '../../types/firestore';
@@ -14,9 +15,23 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const [activeTab, setActiveTab] = useState<'weekly' | 'all_time'>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const [timeLeft, setTimeLeft] = useState("");
+
+    useEffect(() => {
+        if (activeTab === 'weekly') {
+            const updateTimer = () => {
+                const ms = getTimeUntilWeeklyReset();
+                setTimeLeft(formatTimeRemaining(ms));
+            };
+            updateTimer(); // Initial call
+            const interval = setInterval(updateTimer, 60000); // 1 min update is enough for d/h/m
+            return () => clearInterval(interval);
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         let isCancelled = false;
+        // ... (rest is same)
 
         const fetchLeaders = async () => {
             setLoading(true);
@@ -27,13 +42,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
 
                 if (activeTab === 'weekly') {
                     // Weekly High Score
-                    const getCurrentWeekId = () => {
-                        const now = new Date();
-                        const oneJan = new Date(now.getFullYear(), 0, 1);
-                        const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
-                        const weekNum = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
-                        return `${now.getFullYear()}-W${weekNum}`;
-                    };
                     const currentWeekId = getCurrentWeekId();
 
                     q = query(
@@ -56,8 +64,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     });
                     setLeaders(fetchedUsers);
                 }
-            } catch (error) {
-                if (!isCancelled) console.error("Error fetching leaderboard:", error);
+            } catch (error: any) {
+                if (!isCancelled) {
+                    console.error("Error fetching leaderboard:", error);
+                    if (error?.message?.includes('index')) {
+                        console.error("FIRESTORE INDEX MISSING. Click the link in console to create it.");
+                        // Optional: You could show a UI message here if you want
+                    }
+                }
             } finally {
                 if (!isCancelled) setLoading(false);
             }
@@ -88,7 +102,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
             </div>
 
             {/* Tabs */}
-            <div className="w-full max-w-md flex bg-slate-800 rounded-xl p-1 mb-6">
+            <div className="w-full max-w-md flex bg-slate-800 rounded-xl p-1 mb-6 relative z-10">
                 <button
                     onClick={() => {
                         setActiveTab('weekly');
@@ -110,6 +124,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     {t('all_time')}
                 </button>
             </div>
+
+            {/* Weekly Countdown Timer */}
+            {activeTab === 'weekly' && timeLeft && (
+                <div className="w-full max-w-md flex justify-center -mt-5 mb-4 z-0">
+                    <div className="bg-slate-900/50 backdrop-blur-sm px-4 py-1.5 rounded-b-xl border border-t-0 border-slate-700/50 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                        <i className='bx bx-timer text-yellow-500 text-sm'></i>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('resets_in')}</span>
+                        <span className="text-xs text-white font-mono font-bold">{timeLeft}</span>
+                    </div>
+                </div>
+            )}
 
             {/* List */}
             <div className="w-full max-w-md flex-1 overflow-y-auto hide-scrollbar space-y-3 pb-8">

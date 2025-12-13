@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getCurrentWeekId, getUSDateString } from '../utils/dateUtils';
 import { signInAnonymously, User } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import auth from '../firebase/auth';
@@ -27,28 +28,6 @@ export const useAuth = () => {
                     if (userSnap.exists()) {
                         // Load data
                         const data = userSnap.data();
-
-                        // Check Daily Limit Reset (Fixed Time: US/Eastern 00:00)
-
-                        // Get current date string in US Eastern time (e.g., "12/7/2025")
-                        // Get current date string in US Eastern time (e.g., "12/7/2025")
-                        const getUSDateString = () => {
-                            return new Date().toLocaleDateString('en-US', {
-                                timeZone: 'America/New_York',
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit'
-                            });
-                        };
-
-                        // Helper for Week ID (Simple logic is fine for now)
-                        const getCurrentWeekId = () => {
-                            const now = new Date();
-                            const oneJan = new Date(now.getFullYear(), 0, 1);
-                            const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
-                            const weekNum = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
-                            return `${now.getFullYear()}-W${weekNum}`;
-                        };
 
                         const currentUSDate = getUSDateString();
                         const currentWeekId = getCurrentWeekId();
@@ -101,22 +80,6 @@ export const useAuth = () => {
                     } else {
                         // Create new user
                         const nowISO = new Date().toISOString();
-                        const getUSDateString = () => {
-                            return new Date().toLocaleDateString('en-US', {
-                                timeZone: 'America/New_York',
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit'
-                            });
-                        };
-                        const getCurrentWeekId = () => {
-                            const now = new Date();
-                            const oneJan = new Date(now.getFullYear(), 0, 1);
-                            const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
-                            const weekNum = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
-                            return `${now.getFullYear()}-W${weekNum}`;
-                        };
-
                         const usDate = getUSDateString();
                         const weekId = getCurrentWeekId();
 
