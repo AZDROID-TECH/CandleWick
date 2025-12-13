@@ -8,13 +8,14 @@ import Home from './features/ui/Home';
 import GameScreen from './features/game/GameScreen';
 import GameOverModal from './features/ui/GameOverModal';
 import LoadingScreen from './features/ui/LoadingScreen';
+import CountdownOverlay from './features/ui/CountdownOverlay';
 import { useAuth } from './hooks/useAuth';
 
 import { useScoreSync } from './hooks/useScoreSync';
 
 // Wrapper component to use Redux hooks
 const GameApp = () => {
-    const { isPlaying, isGameOver, isLoading } = useAppSelector(state => state.game);
+    const { isPlaying, isGameOver, isLoading, isResuming } = useAppSelector(state => state.game);
     // Initialize Auth and Data Sync
     useAuth();
     useScoreSync();
@@ -25,14 +26,13 @@ const GameApp = () => {
 
     return (
         <>
-            {!isPlaying && !isGameOver && <Home />}
-            {isPlaying && <GameScreen />}
-            {isGameOver && (
-                <>
-                    <GameScreen /> {/* Keep background visible */}
-                    <GameOverModal />
-                </>
-            )}
+            {!isPlaying && !isGameOver && !isResuming && <Home />}
+
+            {(isPlaying || isResuming || isGameOver) && <GameScreen />}
+
+            {isResuming && <CountdownOverlay />}
+
+            {isGameOver && <GameOverModal />}
         </>
     );
 };

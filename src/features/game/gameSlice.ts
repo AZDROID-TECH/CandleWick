@@ -11,6 +11,7 @@ interface GameState {
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
     adWatchCount: number;
     isLoading: boolean;
+    isResuming: boolean;
     difficulty: number;
 }
 
@@ -25,6 +26,7 @@ const initialState: GameState = {
     lastDailyReset: new Date().toISOString(), // Default now
     adWatchCount: 0,
     isLoading: true,
+    isResuming: false,
     difficulty: 1,
 };
 
@@ -93,16 +95,18 @@ export const gameSlice = createSlice({
             state.difficulty = action.payload;
         },
         continueGame: (state) => {
-            state.isPlaying = true;
+            state.isResuming = true;
             state.isGameOver = false;
+            state.isPlaying = false;
             state.adWatchCount += 1;
-            // Optionally move player up slightly/safety? Handled in Canvas logic or just resumes.
-            // GameCanvas uses refs, so we might need to handle safety there if needed, 
-            // but just unpausing (isPlaying=true) resumes the loop.
+        },
+        resumeGame: (state) => {
+            state.isResuming = false;
+            state.isPlaying = true;
         }
     },
 });
 
-export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, continueGame, setDifficulty } = gameSlice.actions;
+export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, continueGame, resumeGame, setDifficulty } = gameSlice.actions;
 
 export default gameSlice.reducer;

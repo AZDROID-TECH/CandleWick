@@ -50,7 +50,7 @@ interface Item {
 const GameCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const dispatch = useAppDispatch();
-    const { isPlaying, isGameOver, dailyEarnings } = useAppSelector((state) => state.game);
+    const { isPlaying, isGameOver, dailyEarnings, difficulty } = useAppSelector((state) => state.game);
     const bonusImageRef = useRef<HTMLImageElement>(new Image());
 
     const gameStateRef = useRef<GameState>({
@@ -134,10 +134,11 @@ const GameCanvas: React.FC = () => {
         };
     }, []);
 
-    // Sync dailyEarnings to Ref
+    // Sync dailyEarnings and difficulty to Ref
     useEffect(() => {
         gameStateRef.current.dailyEarnings = dailyEarnings;
-    }, [dailyEarnings]);
+        gameStateRef.current.difficulty = difficulty;
+    }, [dailyEarnings, difficulty]);
 
     const update = (time: number) => {
         if (!isPlaying || isGameOver) return;
