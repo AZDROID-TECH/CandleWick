@@ -11,7 +11,7 @@ interface LeaderboardProps {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<'daily' | 'all_time'>('daily');
+    const [activeTab, setActiveTab] = useState<'weekly' | 'all_time'>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -22,25 +22,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 const usersRef = collection(db, 'users');
                 let q;
 
-                if (activeTab === 'daily') {
-                    // Daily High Score (desc) - ONLY for today
-                    // Need to generate US Date string to match how useAuth saves it
-                    const getUSDateString = () => {
-                        return new Date().toLocaleDateString('en-US', {
-                            timeZone: 'America/New_York',
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                        });
+                if (activeTab === 'weekly') {
+                    // Weekly High Score
+                    const getCurrentWeekId = () => {
+                        const now = new Date();
+                        const oneJan = new Date(now.getFullYear(), 0, 1);
+                        const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
+                        const weekNum = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
+                        return `${now.getFullYear()}-W${weekNum}`;
                     };
-                    const currentUSDate = getUSDateString();
+                    const currentWeekId = getCurrentWeekId();
 
-                    // Filter: Must match today's date AND sort by score
-                    // Note: This requires a Firestore Composite Index (last_daily_reset ASC, daily_high_score DESC)
                     q = query(
                         usersRef,
-                        where('last_daily_reset', '==', currentUSDate),
-                        orderBy('daily_high_score', 'desc'),
+                        where('current_week_id', '==', currentWeekId),
+                        orderBy('weekly_high_score', 'desc'),
                         limit(20)
                     );
                 } else {
@@ -85,13 +81,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
             <div className="w-full max-w-md flex bg-slate-800 rounded-xl p-1 mb-6">
                 <button
                     onClick={() => {
-                        setActiveTab('daily');
+                        setActiveTab('weekly');
                         WebApp.HapticFeedback.selectionChanged();
                     }}
-                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'daily' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'
+                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'weekly' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'
                         }`}
                 >
-                    {t('daily')}
+                    {t('weekly')}
                 </button>
                 <button
                     onClick={() => {
@@ -135,7 +131,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="font-mono font-black text-lg text-white">
-                                    {activeTab === 'daily' ? (user.daily_high_score || 0) : user.high_score}
+                                    {activeTab === 'weekly' ? (user.weekly_high_score || 0) : user.high_score}
                                 </span>
                                 <span className="text-[10px] uppercase text-slate-500 font-bold">{t('score')}</span>
                             </div>

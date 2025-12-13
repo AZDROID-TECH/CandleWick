@@ -5,7 +5,7 @@ import db from '../firebase/db';
 import WebApp from '@twa-dev/sdk';
 
 export const useScoreSync = () => {
-    const { highScore, coins, dailyEarnings, dailyHighScore, lastDailyReset } = useAppSelector(state => state.game);
+    const { highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset, currentWeekId } = useAppSelector(state => state.game);
     const userId = WebApp.initDataUnsafe.user?.id;
 
     useEffect(() => {
@@ -21,7 +21,9 @@ export const useScoreSync = () => {
                     total_azc: coins,
                     daily_earnings: dailyEarnings,
                     daily_high_score: dailyHighScore,
-                    last_daily_reset: lastDailyReset
+                    weekly_high_score: weeklyHighScore,
+                    last_daily_reset: lastDailyReset,
+                    current_week_id: currentWeekId
                 });
             } catch (error) {
                 console.error("Score sync failed", error);
@@ -33,5 +35,5 @@ export const useScoreSync = () => {
         if (highScore > 0) {
             syncScore();
         }
-    }, [highScore, coins, dailyEarnings, dailyHighScore, lastDailyReset, userId]);
+    }, [highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset, currentWeekId, userId]);
 };

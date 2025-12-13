@@ -8,7 +8,9 @@ interface GameState {
     coins: number;
     dailyEarnings: number; // Redux state for daily tracking
     dailyHighScore: number;
+    weeklyHighScore: number;
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
+    currentWeekId: string;
     adWatchCount: number;
     isLoading: boolean;
     isResuming: boolean;
@@ -23,7 +25,9 @@ const initialState: GameState = {
     coins: 0,
     dailyEarnings: 0,
     dailyHighScore: 0,
+    weeklyHighScore: 0,
     lastDailyReset: new Date().toISOString(), // Default now
+    currentWeekId: "",
     adWatchCount: 0,
     isLoading: true,
     isResuming: false,
@@ -49,6 +53,9 @@ export const gameSlice = createSlice({
             }
             if (state.score > state.dailyHighScore) {
                 state.dailyHighScore = state.score;
+            }
+            if (state.score > state.weeklyHighScore) {
+                state.weeklyHighScore = state.score;
             }
         },
         incrementScore: (state, action: PayloadAction<number>) => {
@@ -84,11 +91,13 @@ export const gameSlice = createSlice({
         setHighScore: (state, action: PayloadAction<number>) => {
             state.highScore = action.payload;
         },
-        setUserData: (state, action: PayloadAction<{ total_azc: number, daily_earnings: number, daily_high_score: number, last_daily_reset: string }>) => {
+        setUserData: (state, action: PayloadAction<{ total_azc: number, daily_earnings: number, daily_high_score: number, weekly_high_score: number, last_daily_reset: string, current_week_id: string }>) => {
             state.coins = action.payload.total_azc;
             state.dailyEarnings = action.payload.daily_earnings;
             state.dailyHighScore = action.payload.daily_high_score;
+            state.weeklyHighScore = action.payload.weekly_high_score;
             state.lastDailyReset = action.payload.last_daily_reset;
+            state.currentWeekId = action.payload.current_week_id;
             state.isLoading = false;
         },
         setDifficulty: (state, action: PayloadAction<number>) => {
