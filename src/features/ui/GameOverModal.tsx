@@ -9,7 +9,7 @@ const GameOverModal: React.FC = () => {
     const dispatch = useAppDispatch();
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
-    const showAd = async (onReward: () => void) => {
+    const showAd = async (blockId: string | undefined, onReward: () => void) => {
         const loadScript = () => {
             return new Promise<void>((resolve, reject) => {
                 if ((window as any).Adsgram) {
@@ -29,9 +29,8 @@ const GameOverModal: React.FC = () => {
             await loadScript();
             if (!(window as any).Adsgram) throw new Error("Adsgram object not found after load");
 
-            const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID;
             if (!blockId) {
-                console.error("VITE_TELEGRAM_BLOCK_ID is not defined in .env");
+                console.error("Ad Block ID is missing");
                 alert("Ad configuration missing.");
                 return;
             }
@@ -56,7 +55,8 @@ const GameOverModal: React.FC = () => {
     };
 
     const handleContinue = () => {
-        showAd(() => {
+        const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID;
+        showAd(blockId, () => {
             dispatch(continueGame());
         });
     };
@@ -67,7 +67,8 @@ const GameOverModal: React.FC = () => {
     };
 
     const handleDoubleClaim = () => {
-        showAd(() => {
+        const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID_2X;
+        showAd(blockId, () => {
             WebApp.HapticFeedback.notificationOccurred('success');
             dispatch(claimDoubleReward());
         });
