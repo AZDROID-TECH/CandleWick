@@ -110,7 +110,6 @@ const GameCanvas: React.FC = () => {
 
             // Remove nearby/colliding items (coins) to prevent visual glitch
             gameStateRef.current.items = gameStateRef.current.items.filter(item => {
-                const itemRadius = item.width / 2;
                 const dx = (playerRect.x + playerRect.w / 2) - item.x;
                 const dy = (playerRect.y + playerRect.h / 2) - item.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
