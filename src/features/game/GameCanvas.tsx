@@ -96,17 +96,22 @@ const GameCanvas: React.FC = () => {
                 h: CANDLE_HEIGHT
             };
 
-            // Remove colliding obstacles
-            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => {
-                // Check collision (AABB)
+            // Identify X coordinates of colliding obstacles (to remove entire column)
+            const collidingXCoords = new Set<number>();
+            gameStateRef.current.obstacles.forEach(obs => {
                 const isColliding =
                     playerRect.x < obs.x + obs.width &&
                     playerRect.x + playerRect.w > obs.x &&
                     playerRect.y < obs.y + obs.height &&
                     playerRect.y + playerRect.h > obs.y;
 
-                return !isColliding; // Keep if NOT colliding
+                if (isColliding) {
+                    collidingXCoords.add(obs.x);
+                }
             });
+
+            // Remove any obstacle that belongs to a colliding column
+            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => !collidingXCoords.has(obs.x));
 
             // Remove nearby/colliding items (coins) to prevent visual glitch
             gameStateRef.current.items = gameStateRef.current.items.filter(item => {
