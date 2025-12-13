@@ -12,6 +12,7 @@ const Home: React.FC = () => {
     const user = WebApp.initDataUnsafe.user;
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
+    const [currentTime, setCurrentTime] = useState<string>("");
 
     // Limit kontrolü ve sayaç (Limit check and timer)
     const isLimitReached = dailyEarnings >= 1000;
@@ -20,9 +21,6 @@ const Home: React.FC = () => {
         // Timer always runs to show reset time
         const updateTimer = () => {
             const now = new Date();
-            // Calculate US Eastern Midnight
-            // We get current US time string, then build a Date object for "Tomorrow 00:00" in US time?
-            // Simpler: Just calculate remaining minutes in the day based on US time hours/minutes.
 
             const formatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'America/New_York',
@@ -31,6 +29,16 @@ const Home: React.FC = () => {
                 second: 'numeric',
                 hour12: false
             });
+
+            // Clock Formatter (HH:mm)
+            const clockFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+            setCurrentTime(clockFormatter.format(now));
+
             const parts = formatter.formatToParts(now);
             const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
             const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
@@ -42,7 +50,7 @@ const Home: React.FC = () => {
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 60000);
+        const interval = setInterval(updateTimer, 1000); // 1 sec for clock
         return () => clearInterval(interval);
     }, [t]);
 
@@ -63,6 +71,10 @@ const Home: React.FC = () => {
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-slate-900/90 backdrop-blur-sm">
             {/* ... Header ... */}
+            <div className="absolute top-4 left-4 text-slate-500 font-mono text-sm font-bold tracking-widest opacity-80 z-20">
+                {currentTime}
+            </div>
+
             <div className="absolute top-4 right-4 flex gap-2">
                 <button onClick={() => changeLanguage('en')} className={`px-2 py-1 rounded ${i18n.language === 'en' ? 'bg-slate-600 text-white' : 'text-slate-500'}`}>EN</button>
                 <button onClick={() => changeLanguage('az')} className={`px-2 py-1 rounded ${i18n.language === 'az' ? 'bg-slate-600 text-white' : 'text-slate-500'}`}>AZ</button>
