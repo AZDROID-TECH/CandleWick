@@ -50,7 +50,7 @@ interface Item {
 const GameCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const dispatch = useAppDispatch();
-    const { isPlaying, isGameOver, dailyEarnings, difficulty } = useAppSelector((state) => state.game);
+    const { isPlaying, isGameOver, dailyEarnings, difficulty, isResuming } = useAppSelector((state) => state.game);
     const bonusImageRef = useRef<HTMLImageElement>(new Image());
 
     const gameStateRef = useRef<GameState>({
@@ -78,6 +78,20 @@ const GameCanvas: React.FC = () => {
         bonusImageRef.current.src = AZCashLogo;
     }, []);
 
+    // Safety Reset on Resume
+    useEffect(() => {
+        if (isResuming && canvasRef.current) {
+            // Center the player
+            gameStateRef.current.y = canvasRef.current.height / 2;
+            gameStateRef.current.velocity = 0;
+            gameStateRef.current.isHolding = false; // Reset input
+
+            // Clear immediate obstacles to prevent instant death
+            // Keep obstacles that are far away (e.g. > 300px)
+            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => obs.x > 300);
+        }
+    }, [isResuming]);
+
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -89,11 +103,13 @@ const GameCanvas: React.FC = () => {
         // Touch Events (Canvas Only - Fixes iOS Scroll/Zoom/Bubble)
         const handleTouchStart = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
             gameStateRef.current.isHolding = true;
             lastTouchTimeRef.current = Date.now();
         };
         const handleTouchEnd = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
             gameStateRef.current.isHolding = false;
             lastTouchTimeRef.current = Date.now();
         };
@@ -112,6 +128,7 @@ const GameCanvas: React.FC = () => {
         // Prevent Global Scroll (Rubber Banding)
         const handleTouchMove = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
         };
 
         // Attach touch to canvas with non-passive to allow preventDefault
@@ -485,6 +502,7 @@ const GameCanvas: React.FC = () => {
             ref={canvasRef}
             className="block touch-none"
             style={{
+                touchAction: 'none',
                 WebkitTapHighlightColor: 'transparent',
                 WebkitTouchCallout: 'none',
                 WebkitUserSelect: 'none',

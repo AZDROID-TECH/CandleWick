@@ -8,24 +8,32 @@
   color-scheme: dark;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  /* iOS Scroll Lock */
+  inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+body {
   font-family: 'Ubuntu', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #0f172a;
   color: #ffffff;
-  overflow: hidden;
-  /* Prevent rubber-banding */
-  overscroll-behavior: none;
   /* Prevent scrolling */
   user-select: none;
   /* Prevent text selection */
   -webkit-user-select: none;
   /* Safari */
   -webkit-touch-callout: none;
-  /* iOS Safari touch */
-  touch-action: none;
   /* Prevent browser gestures */
   -webkit-tap-highlight-color: transparent;
 }
@@ -38,7 +46,8 @@ body {
 
 #root {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }

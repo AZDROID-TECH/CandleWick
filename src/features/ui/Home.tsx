@@ -128,6 +128,12 @@ const Home: React.FC = () => {
                 <p className="text-slate-500 text-sm uppercase tracking-widest mb-1">{t('best')}</p>
                 <p className="text-3xl font-mono font-bold text-white">{highScore}</p>
             </div>
+
+            <div className="absolute bottom-4 text-center w-full px-4">
+                <p className="text-gray-500 text-[10px] font-medium opacity-60">
+                    {t('copyright')}
+                </p>
+            </div>
         </div>
     );
 };

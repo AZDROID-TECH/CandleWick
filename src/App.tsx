@@ -8,7 +8,7 @@ import Home from './features/ui/Home';
 import GameScreen from './features/game/GameScreen';
 import GameOverModal from './features/ui/GameOverModal';
 import LoadingScreen from './features/ui/LoadingScreen';
-import CountdownOverlay from './features/ui/CountdownOverlay';
+import ResumeOverlay from './features/ui/ResumeOverlay';
 import { useAuth } from './hooks/useAuth';
 
 import { useScoreSync } from './hooks/useScoreSync';
@@ -30,7 +30,7 @@ const GameApp = () => {
 
             {(isPlaying || isResuming || isGameOver) && <GameScreen />}
 
-            {isResuming && <CountdownOverlay />}
+            {isResuming && <ResumeOverlay />}
 
             {isGameOver && <GameOverModal />}
         </>

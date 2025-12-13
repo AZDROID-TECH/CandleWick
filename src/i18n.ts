@@ -27,7 +27,8 @@ const resources = {
             "hours": "hours",
             "minutes": "minutes",
             "home": "Home",
-            "score_only_mode": "Limit Reached - Score Mode Only"
+            "score_only_mode": "Limit Reached - Score Mode Only",
+            "copyright": "2025 (c) AZDROID Tech. | All rights reserved"
         }
     },
     az: {
@@ -54,7 +55,8 @@ const resources = {
             "hours": "saat",
             "minutes": "dəqiqə",
             "home": "Ana Səhifə",
-            "score_only_mode": "Limit Doldu - Yalnız Xal Modu"
+            "score_only_mode": "Limit Doldu - Yalnız Xal Modu",
+            "copyright": "2025 (c) AZDROID Tech. | Müəllif hüquqları qorunur"
         }
     }
 };
