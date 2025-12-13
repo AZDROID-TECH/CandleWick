@@ -28,7 +28,9 @@ const resources = {
             "minutes": "minutes",
             "home": "Home",
             "score_only_mode": "Limit Reached - Score Mode Only",
-            "copyright": "2025 (c) AZDROID Tech. | All rights reserved"
+            "copyright": "2025 (c) AZDROID Tech. | All rights reserved",
+            "ready_question": "READY?",
+            "go_button": "GO!"
         }
     },
     az: {
@@ -56,7 +58,9 @@ const resources = {
             "minutes": "dəqiqə",
             "home": "Ana Səhifə",
             "score_only_mode": "Limit Doldu - Yalnız Xal Modu",
-            "copyright": "2025 (c) AZDROID Tech. | Müəllif hüquqları qorunur"
+            "copyright": "2025 (c) AZDROID Tech. | Müəllif hüquqları qorunur",
+            "ready_question": "HAZIRSAN?",
+            "go_button": "BAŞLA!"
         }
     }
 };

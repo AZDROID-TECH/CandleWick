@@ -81,14 +81,43 @@ const GameCanvas: React.FC = () => {
     // Safety Reset on Resume
     useEffect(() => {
         if (isResuming && canvasRef.current) {
-            // Center the player
-            gameStateRef.current.y = canvasRef.current.height / 2;
-            gameStateRef.current.velocity = 0;
-            gameStateRef.current.isHolding = false; // Reset input
+            // Precise Resume Logic:
+            // 1. Keep Player Position (y) exactly where they died.
+            // 2. Remove ONLY the obstacle/item causing the collision.
 
-            // Clear immediate obstacles to prevent instant death
-            // Keep obstacles that are far away (e.g. > 300px)
-            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => obs.x > 300);
+            gameStateRef.current.velocity = 0; // Stabilization
+            gameStateRef.current.isHolding = false;
+
+            // Define Player Hitbox at current position
+            const playerRect = {
+                x: 100 - CANDLE_WIDTH / 2,
+                y: gameStateRef.current.y,
+                w: CANDLE_WIDTH,
+                h: CANDLE_HEIGHT
+            };
+
+            // Remove colliding obstacles
+            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => {
+                // Check collision (AABB)
+                const isColliding =
+                    playerRect.x < obs.x + obs.width &&
+                    playerRect.x + playerRect.w > obs.x &&
+                    playerRect.y < obs.y + obs.height &&
+                    playerRect.y + playerRect.h > obs.y;
+
+                return !isColliding; // Keep if NOT colliding
+            });
+
+            // Remove nearby/colliding items (coins) to prevent visual glitch
+            gameStateRef.current.items = gameStateRef.current.items.filter(item => {
+                const itemRadius = item.width / 2;
+                const dx = (playerRect.x + playerRect.w / 2) - item.x;
+                const dy = (playerRect.y + playerRect.h / 2) - item.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Remove if touching or very close (within 50px)
+                return dist > 50;
+            });
         }
     }, [isResuming]);
 
