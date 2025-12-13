@@ -40,7 +40,21 @@ const GameOverModal: React.FC = () => {
                 debug: false // Production mode
             });
 
+            const startTime = Date.now();
+
             AdController.show().then(() => {
+                // Check if ad was closed too quickly (e.g. < 5 seconds)
+                // Some ads might be short (6s), so 5s is a safe lower bound to detect immediate skips.
+                // User mentioned 2-3 seconds skip capability.
+                const elapsed = Date.now() - startTime;
+
+                if (elapsed < 15000) {
+                    WebApp.HapticFeedback.notificationOccurred('error');
+                    // We use a simple alert or standard webapp popup
+                    WebApp.showAlert(t('ad_warning_short'));
+                    return;
+                }
+
                 // user listen your ad till the end
                 onReward();
             }).catch((result: any) => {
@@ -121,7 +135,7 @@ const GameOverModal: React.FC = () => {
                         </button>
                     ) : (
                         <button className="w-full py-3 bg-slate-800 text-slate-500 rounded-xl font-bold flex items-center justify-center gap-2 cursor-not-allowed">
-                            {t('no_ads_left')}
+                            {t('cannot_continue')}
                         </button>
                     )}
 
