@@ -16,8 +16,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let isCancelled = false;
+
         const fetchLeaders = async () => {
             setLoading(true);
+            setLeaders([]);
             try {
                 const usersRef = collection(db, 'users');
                 let q;
@@ -45,19 +48,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 }
 
                 const snapshot = await getDocs(q);
-                const fetchedUsers: FirestoreUser[] = [];
-                snapshot.forEach(doc => {
-                    fetchedUsers.push(doc.data() as FirestoreUser);
-                });
-                setLeaders(fetchedUsers);
+
+                if (!isCancelled) {
+                    const fetchedUsers: FirestoreUser[] = [];
+                    snapshot.forEach(doc => {
+                        fetchedUsers.push(doc.data() as FirestoreUser);
+                    });
+                    setLeaders(fetchedUsers);
+                }
             } catch (error) {
-                console.error("Error fetching leaderboard:", error);
+                if (!isCancelled) console.error("Error fetching leaderboard:", error);
             } finally {
-                setLoading(false);
+                if (!isCancelled) setLoading(false);
             }
         };
 
         fetchLeaders();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [activeTab]);
 
     return (

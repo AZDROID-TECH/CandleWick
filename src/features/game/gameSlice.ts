@@ -13,8 +13,10 @@ interface GameState {
     currentWeekId: string;
     adWatchCount: number;
     isLoading: boolean;
+    sessionEarnings: number;
     isResuming: boolean;
     difficulty: number;
+    gameSessionId: number;
 }
 
 const initialState: GameState = {
@@ -30,8 +32,10 @@ const initialState: GameState = {
     currentWeekId: "",
     adWatchCount: 0,
     isLoading: true,
+    sessionEarnings: 0,
     isResuming: false,
     difficulty: 1,
+    gameSessionId: 0,
 };
 
 export const gameSlice = createSlice({
@@ -44,6 +48,8 @@ export const gameSlice = createSlice({
             state.score = 0;
             state.adWatchCount = 0;
             state.difficulty = 1;
+            state.sessionEarnings = 0;
+            state.gameSessionId += 1;
         },
         endGame: (state) => {
             state.isPlaying = false;
@@ -71,6 +77,7 @@ export const gameSlice = createSlice({
             if (state.dailyEarnings + amount <= MAX_DAILY_LIMIT) {
                 state.coins += amount;
                 state.dailyEarnings += amount;
+                state.sessionEarnings += amount;
             } else {
                 // If adding full amount exceeds, add partial? Or reject?
                 // Rejecting is simpler for now or partial fill.
@@ -79,8 +86,30 @@ export const gameSlice = createSlice({
                 if (allowed > 0) {
                     state.coins += allowed;
                     state.dailyEarnings += allowed;
+                    state.sessionEarnings += allowed;
                 }
             }
+        },
+        claimDoubleReward: (state) => {
+            // 2x Logic: User already got 1x during game. We add +1x more.
+            // Respect Daily Limit.
+            const MAX_DAILY_LIMIT = 1000;
+            const amountToAdd = state.sessionEarnings;
+
+            // Calculate remaining space in daily limit
+            // state.dailyEarnings already includes the 1x amount.
+            const allowed = Math.max(0, MAX_DAILY_LIMIT - state.dailyEarnings);
+            const actualAdd = Math.min(amountToAdd, allowed);
+
+            if (actualAdd > 0) {
+                state.coins += actualAdd;
+                state.dailyEarnings += actualAdd;
+            }
+
+            // Exit Game (Reset to home state logic)
+            state.isPlaying = false;
+            state.isGameOver = false;
+            state.score = 0;
         },
         resetGame: (state) => {
             state.isPlaying = false;
@@ -116,6 +145,7 @@ export const gameSlice = createSlice({
     },
 });
 
-export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, continueGame, resumeGame, setDifficulty } = gameSlice.actions;
+export const { startGame, endGame, incrementScore, collectCoin, resetGame, setHighScore, setUserData, continueGame, resumeGame, setDifficulty, claimDoubleReward } = gameSlice.actions;
 
 export default gameSlice.reducer;
+

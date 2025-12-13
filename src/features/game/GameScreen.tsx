@@ -5,12 +5,12 @@ import { useAppSelector } from '../../app/hooks';
 import { useTranslation } from 'react-i18next';
 
 const GameScreen: React.FC = () => {
-    const { score, coins, dailyEarnings, difficulty } = useAppSelector(state => state.game);
+    const { score, coins, dailyEarnings, difficulty, gameSessionId } = useAppSelector(state => state.game);
     const { t } = useTranslation();
 
     return (
         <div className="relative w-full h-full overflow-hidden bg-slate-900">
-            <GameCanvas />
+            <GameCanvas key={gameSessionId} />
 
             <div className="absolute top-4 left-4 z-10 font-mono font-bold text-white drop-shadow-md pointer-events-none select-none">
                 <div className="text-4xl text-yellow-400">{Math.floor(score)}</div>
