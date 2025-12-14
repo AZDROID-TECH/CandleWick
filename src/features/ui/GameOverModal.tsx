@@ -9,7 +9,8 @@ const GameOverModal: React.FC = () => {
     const dispatch = useAppDispatch();
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
-    const showAd = async (blockId: string | undefined, onReward: () => void) => {
+    // Adsgram Logic
+    const showAdsgramAd = async (blockId: string | undefined, onReward: () => void) => {
         const loadScript = () => {
             return new Promise<void>((resolve, reject) => {
                 if ((window as any).Adsgram) {
@@ -31,7 +32,7 @@ const GameOverModal: React.FC = () => {
 
             if (!blockId) {
                 console.error("Ad Block ID is missing");
-                alert("Ad configuration missing.");
+                WebApp.showAlert(t('ad_config_missing'));
                 return;
             }
 
@@ -64,13 +65,33 @@ const GameOverModal: React.FC = () => {
 
         } catch (error) {
             console.error(error);
-            alert(`Ad Error: ${(error as Error).message}`);
+            WebApp.showAlert(t('ad_load_error') + ": " + (error as Error).message);
         }
     };
 
+    // Monetag Logic
+    const showMonetagAd = (onReward: () => void) => {
+        const showAdFn = (window as any).show_10324597;
+
+        if (typeof showAdFn !== 'function') {
+            console.error("Monetag SDK (show_10324597) not loaded or denied.");
+            WebApp.showAlert(t('ad_load_error'));
+            return;
+        }
+
+        WebApp.HapticFeedback.impactOccurred('light');
+
+        showAdFn().then(() => {
+            // Monetag Promise resolves when ad is finished/closed
+            onReward();
+        }).catch((err: any) => {
+            console.error("Monetag Ad Error:", err);
+        });
+    };
+
     const handleContinue = () => {
-        const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID;
-        showAd(blockId, () => {
+        // Use Monetag for "Continue"
+        showMonetagAd(() => {
             dispatch(continueGame());
         });
     };
@@ -81,8 +102,9 @@ const GameOverModal: React.FC = () => {
     };
 
     const handleDoubleClaim = () => {
+        // Use Adsgram for "2x Claim"
         const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID_2X;
-        showAd(blockId, () => {
+        showAdsgramAd(blockId, () => {
             WebApp.HapticFeedback.notificationOccurred('success');
             dispatch(claimDoubleReward());
         });
