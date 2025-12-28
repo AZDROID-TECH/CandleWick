@@ -1,7 +1,8 @@
-import React from 'react';
+import { useTranslation } from 'react-i18next';
 import AZCashLogo from '../../assets/AZCash.logo.png';
 
 const LoadingScreen: React.FC = () => {
+    const { t } = useTranslation();
     return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-white">
             <div className="relative mb-6">
@@ -17,7 +18,7 @@ const LoadingScreen: React.FC = () => {
             <div className="flex flex-col items-center gap-2">
                 <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
                 <div className="text-slate-400 text-sm font-mono tracking-widest uppercase animate-pulse">
-                    Loading Data...
+                    {t('loading_data')}
                 </div>
             </div>
 

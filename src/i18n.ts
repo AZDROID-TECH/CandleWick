@@ -37,7 +37,10 @@ const resources = {
             "score_only_mode": "Daily AZC limit reached",
             "copyright": "2025 (c) AZDROID Tech. | All rights reserved",
             "ready_question": "READY?",
-            "go_button": "GO!"
+            "go_button": "GO!",
+            "loading_data": "Loading Data...",
+            "daily_stats": "Daily: {{current}}/{{max}}",
+            "anonymous": "Anonymous"
         }
     },
     az: {
@@ -74,7 +77,10 @@ const resources = {
             "score_only_mode": "Günlük AZC limiti keçildi",
             "copyright": "2025 (c) AZDROID Tech. | Müəllif hüquqları qorunur",
             "ready_question": "HAZIRSAN?",
-            "go_button": "BAŞLA!"
+            "go_button": "BAŞLA!",
+            "loading_data": "Məlumat yüklənir...",
+            "daily_stats": "Günlük: {{current}}/{{max}}",
+            "anonymous": "Anonim"
         }
     }
 };

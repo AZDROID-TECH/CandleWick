@@ -81,8 +81,8 @@ const GameOverModal: React.FC = () => {
 
         WebApp.HapticFeedback.impactOccurred('light');
 
-        // 'pop' arqumenti Rewarded Popup formatını məcbur edir
-        showAdFn('pop').then(() => {
+        // Varsayılan Rewarded Interstitial formatı
+        showAdFn().then(() => {
             // Monetag Promise reklam bitəndə/bağlananda həll olunur
             onReward();
         }).catch((err: any) => {

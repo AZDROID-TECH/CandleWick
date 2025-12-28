@@ -25,6 +25,7 @@ interface GameState {
     lastObstacleTime: number;
     lastFrameTime: number;
     difficulty: number;
+    immortalUntil: number; // Ölümsüzlük bitiş zamanı (Timestamp)
 }
 
 interface Obstacle {
@@ -67,7 +68,7 @@ const GameCanvas: React.FC = () => {
         lastObstacleTime: 0,
         lastFrameTime: 0,
         difficulty: 1,
-
+        immortalUntil: 0 // Varsayılan: Ölümsüzlük yoxdur
     });
 
     const requestRef = useRef<number>();
@@ -81,47 +82,20 @@ const GameCanvas: React.FC = () => {
     // Davam etmədə (Resume) Təhlükəsizlik Sıfırlaması
     useEffect(() => {
         if (isResuming && canvasRef.current) {
-            // Dəqiq Davam Etmə Məntiqi:
-            // 1. Oyunçunun mövqeyini (y) öldüyü yerdə saxla.
-            // 2. YALNIZ toqquşmaya səbəb olan maneəni/əşyanı sil.
+            const canvas = canvasRef.current;
+            // Dəqiq Davam Etmə Məntiqi (YENİLƏNDİ):
+            // 1. Oyunçunu mərkəzə yerləşdir.
+            // 2. Maneələri SİLMƏ.
+            // 3. 3 saniyəlik ölümsüzlük ver.
 
             gameStateRef.current.velocity = 0; // Stabilizasiya
             gameStateRef.current.isHolding = false;
 
-            // Cari mövqedə oyunçu toqquşma sahəsini (Hitbox) təyin et
-            const playerRect = {
-                x: 100 - CANDLE_WIDTH / 2,
-                y: gameStateRef.current.y,
-                w: CANDLE_WIDTH,
-                h: CANDLE_HEIGHT
-            };
+            // Ekranın mərkəzinə yerləşdir
+            gameStateRef.current.y = canvas.height / 2 - CANDLE_HEIGHT / 2;
 
-            // Toqquşan maneələrin X koordinatlarını müəyyənləşdir (bütün sütunu silmək üçün)
-            const collidingXCoords = new Set<number>();
-            gameStateRef.current.obstacles.forEach(obs => {
-                const isColliding =
-                    playerRect.x < obs.x + obs.width &&
-                    playerRect.x + playerRect.w > obs.x &&
-                    playerRect.y < obs.y + obs.height &&
-                    playerRect.y + playerRect.h > obs.y;
-
-                if (isColliding) {
-                    collidingXCoords.add(obs.x);
-                }
-            });
-
-            // Toqquşan sütuna aid olan hər hansı maneəni sil
-            gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => !collidingXCoords.has(obs.x));
-
-            // Vizual xətanın qarşısını almaq üçün yaxın/toqquşan əşyaları (coin) sil
-            gameStateRef.current.items = gameStateRef.current.items.filter(item => {
-                const dx = (playerRect.x + playerRect.w / 2) - item.x;
-                const dy = (playerRect.y + playerRect.h / 2) - item.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                // Toxunursa və ya çox yaxındırsa (50px daxilində) sil
-                return dist > 50;
-            });
+            // 3. 5 saniyəlik ölümsüzlük ver
+            gameStateRef.current.immortalUntil = Date.now() + 5000;
         }
     }, [isResuming]);
 
@@ -343,6 +317,11 @@ const GameCanvas: React.FC = () => {
                 playerRect.y < obs.y + obs.height &&
                 playerRect.y + playerRect.h > obs.y
             ) {
+                // Ölümsüzlük yoxlaması
+                if (Date.now() < state.immortalUntil) {
+                    return; // Ölmə, sadəcə keç
+                }
+
                 dispatch(endGame());
                 WebApp.HapticFeedback.notificationOccurred('error');
                 return;
@@ -476,6 +455,13 @@ const GameCanvas: React.FC = () => {
         const y = state.y;
         const color = state.isHolding ? '#22c55e' : '#ef4444';
 
+        // Ölümsüzlük effekti (Yanıp-sönmə)
+        const isImmortal = Date.now() < state.immortalUntil;
+        if (isImmortal) {
+            // Sinus dalğası ilə opaklığı dəyiş (Sürətli yanıp sönmə)
+            ctx.globalAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 50);
+        }
+
         // Fitil Elastikliyi (Wick Elasticity)
         const baseWick = 10;
         const stretch = Math.abs(state.velocity) * 4;
@@ -507,12 +493,20 @@ const GameCanvas: React.FC = () => {
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
         ctx.fillRect(x, y, CANDLE_WIDTH, CANDLE_HEIGHT);
+        ctx.fillRect(x, y, CANDLE_WIDTH, CANDLE_HEIGHT);
         ctx.shadowBlur = 0;
+
+        // Opaklığı bərpa et
+        if (isImmortal) {
+            ctx.globalAlpha = 1.0;
+        }
     };
 
     useEffect(() => {
         if (isPlaying && !isGameOver) {
             gameStateRef.current.lastFrameTime = 0;
+            // Overlap qarşısını almaq üçün zamanlayıcını sıfırla
+            gameStateRef.current.lastObstacleTime = performance.now();
             requestRef.current = requestAnimationFrame(update);
         } else {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);

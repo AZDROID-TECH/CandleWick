@@ -140,7 +140,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
             <div className="w-full max-w-md flex-1 overflow-y-auto hide-scrollbar space-y-3 pb-8">
                 {loading ? (
                     <div className="text-center text-slate-500 mt-10 animate-pulse">
-                        Loading...
+                        {t('loading_data')}
                     </div>
                 ) : (
                     leaders.map((user, index) => (
@@ -159,7 +159,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="font-bold text-white text-sm">
-                                        {user.first_name || 'Anonymous'}
+                                        {user.first_name || t('anonymous')}
                                     </span>
                                     {/* <span className="text-xs text-slate-500">@{user.username}</span> */}
                                 </div>

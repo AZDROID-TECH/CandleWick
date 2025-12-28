@@ -29,7 +29,7 @@ const GameScreen: React.FC = () => {
                     <span className="font-bold text-yellow-400">{coins}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">
-                    Daily: {dailyEarnings}/1000
+                    {t('daily_stats', { current: dailyEarnings, max: 1000 })}
                 </div>
             </div>
         </div>

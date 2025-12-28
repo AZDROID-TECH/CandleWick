@@ -90,7 +90,7 @@ const Home: React.FC = () => {
             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-4/5 max-w-sm shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-400">Player:</span>
+                        <span className="text-sm text-slate-400">{t('player')}:</span>
                         <span className="font-bold text-white">{user?.first_name || 'Trader'}</span>
                     </div>
                     <div className="flex items-center gap-1 text-yellow-400">
