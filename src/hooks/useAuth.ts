@@ -7,6 +7,7 @@ import db from '../firebase/db';
 import WebApp from '@twa-dev/sdk';
 import { useAppDispatch } from '../app/hooks';
 import { setHighScore, setUserData } from '../features/game/gameSlice';
+import { FirestoreUser } from '../types/firestore';
 
 export const useAuth = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -14,20 +15,22 @@ export const useAuth = () => {
 
     useEffect(() => {
         const initAuth = async () => {
-            // 1. Sign in anonymously to Firebase (since we don't have custom token backend yet)
+            // 1. Firebase-ə anonim giriş (backend token hələ yoxdur)
             try {
                 const userCredential = await signInAnonymously(auth);
                 setUser(userCredential.user);
 
-                // 2. Sync with Firestore using Telegram ID
+                // 2. Telegram ID istifadə edərək Firestore ilə sinxronizasiya
+
                 const telegramUser = WebApp.initDataUnsafe.user;
                 if (telegramUser) {
                     const userRef = doc(db, 'users', telegramUser.id.toString());
                     const userSnap = await getDoc(userRef);
 
                     if (userSnap.exists()) {
-                        // Load data
-                        const data = userSnap.data();
+                        // Məlumatları yüklə
+                        const data = userSnap.data() as FirestoreUser;
+
 
                         const currentUSDate = getUSDateString();
                         const currentWeekId = getCurrentWeekId();
@@ -35,7 +38,8 @@ export const useAuth = () => {
                         const storedResetDate = data.last_daily_reset || "";
                         const storedWeekId = data.current_week_id || "";
 
-                        // If stored date is different from current US date, trigger reset
+                        // Əgər saxlanan tarix cari ABŞ tarixindən fərqlidirsə, sıfırlamanı işə sal
+
                         const shouldResetDaily = storedResetDate !== currentUSDate;
                         const shouldResetWeekly = storedWeekId !== currentWeekId;
 
@@ -44,12 +48,14 @@ export const useAuth = () => {
                         let currentWeeklyHighScore = data.weekly_high_score || 0;
                         let newLastReset = storedResetDate;
 
-                        const updateData: any = {
+                        const updateData: Partial<FirestoreUser> = {
                             last_login: new Date().toISOString()
-                        };
+                        }; // any YASAQDIR - Partial istifadə edirik
+
 
                         if (shouldResetDaily) {
-                            // Reset daily earnings and high score for the new day
+                            // Yeni gün üçün günlük qazancı və rekordu sıfırla
+
                             currentDailyEarnings = 0;
                             currentDailyHighScore = 0;
                             newLastReset = currentUSDate;
@@ -68,7 +74,8 @@ export const useAuth = () => {
                         await updateDoc(userRef, updateData);
 
                         dispatch(setHighScore(data.high_score || 0));
-                        // Sync User Data
+                        // İstifadəçi Məlumatlarını Sinxronlaşdır
+
                         dispatch(setUserData({
                             total_azc: data.total_azc || 0,
                             daily_earnings: currentDailyEarnings,
@@ -78,22 +85,25 @@ export const useAuth = () => {
                             current_week_id: shouldResetWeekly ? currentWeekId : storedWeekId || currentWeekId
                         }));
                     } else {
-                        // Create new user
+                        // Yeni istifadəçi yarat
+
                         const nowISO = new Date().toISOString();
                         const usDate = getUSDateString();
                         const weekId = getCurrentWeekId();
 
                         await setDoc(userRef, {
                             user_id: telegramUser.id,
-                            username: telegramUser.username || null, // Firestore crashes on undefined
+                            username: telegramUser.username || undefined, // Firestore undefined qəbul etmir, amma null da ola bilər, interfeysə uyğunlaşdırıldı
+
                             first_name: telegramUser.first_name || 'Anonymous',
                             total_azc: 0,
                             high_score: 0,
                             daily_earnings: 0,
                             daily_high_score: 0,
-                            weekly_high_score: 0, // NEW
+                            weekly_high_score: 0, // YENİ
                             last_daily_reset: usDate,
-                            current_week_id: weekId, // NEW
+                            current_week_id: weekId, // YENİ
+
                             referrals: [],
                             completed_tasks: [],
                             created_at: nowISO,
@@ -110,8 +120,9 @@ export const useAuth = () => {
                         }));
                     }
                 } else {
-                    // Fallback for browser/dev testing
-                    console.log("No Telegram user detected, loading mock data.");
+                    // Brauzer/test mühiti üçün fallback
+                    console.log("Telegram istifadəçisi aşkarlanmadı, saxta məlumatlar yüklənir.");
+
                     dispatch(setUserData({
                         total_azc: 0,
                         daily_earnings: 0,
@@ -122,8 +133,9 @@ export const useAuth = () => {
                     }));
                 }
             } catch (error) {
-                console.error("Auth failed", error);
+                console.error("Giriş uğursuz oldu", error);
             }
+
         };
 
         initAuth();

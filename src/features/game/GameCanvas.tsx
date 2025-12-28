@@ -61,9 +61,9 @@ const GameCanvas: React.FC = () => {
         items: [] as Item[],
         trail: [] as { x: number, y: number }[],
         score: 0,
-        obstaclesPassed: 0, // Keçilən maneə sayı (Obstacles passed count)
+        obstaclesPassed: 0, // Keçilən maneə sayı
         dailyEarnings: 0,
-        obstaclesSinceLastCoin: 0, // Bad Luck Protection için sayaç
+        obstaclesSinceLastCoin: 0, // Bad Luck Protection üçün sayğac
         lastObstacleTime: 0,
         lastFrameTime: 0,
         difficulty: 1,
@@ -78,17 +78,17 @@ const GameCanvas: React.FC = () => {
         bonusImageRef.current.src = AZCashLogo;
     }, []);
 
-    // Safety Reset on Resume
+    // Davam etmədə (Resume) Təhlükəsizlik Sıfırlaması
     useEffect(() => {
         if (isResuming && canvasRef.current) {
-            // Precise Resume Logic:
-            // 1. Keep Player Position (y) exactly where they died.
-            // 2. Remove ONLY the obstacle/item causing the collision.
+            // Dəqiq Davam Etmə Məntiqi:
+            // 1. Oyunçunun mövqeyini (y) öldüyü yerdə saxla.
+            // 2. YALNIZ toqquşmaya səbəb olan maneəni/əşyanı sil.
 
-            gameStateRef.current.velocity = 0; // Stabilization
+            gameStateRef.current.velocity = 0; // Stabilizasiya
             gameStateRef.current.isHolding = false;
 
-            // Define Player Hitbox at current position
+            // Cari mövqedə oyunçu toqquşma sahəsini (Hitbox) təyin et
             const playerRect = {
                 x: 100 - CANDLE_WIDTH / 2,
                 y: gameStateRef.current.y,
@@ -96,7 +96,7 @@ const GameCanvas: React.FC = () => {
                 h: CANDLE_HEIGHT
             };
 
-            // Identify X coordinates of colliding obstacles (to remove entire column)
+            // Toqquşan maneələrin X koordinatlarını müəyyənləşdir (bütün sütunu silmək üçün)
             const collidingXCoords = new Set<number>();
             gameStateRef.current.obstacles.forEach(obs => {
                 const isColliding =
@@ -110,16 +110,16 @@ const GameCanvas: React.FC = () => {
                 }
             });
 
-            // Remove any obstacle that belongs to a colliding column
+            // Toqquşan sütuna aid olan hər hansı maneəni sil
             gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obs => !collidingXCoords.has(obs.x));
 
-            // Remove nearby/colliding items (coins) to prevent visual glitch
+            // Vizual xətanın qarşısını almaq üçün yaxın/toqquşan əşyaları (coin) sil
             gameStateRef.current.items = gameStateRef.current.items.filter(item => {
                 const dx = (playerRect.x + playerRect.w / 2) - item.x;
                 const dy = (playerRect.y + playerRect.h / 2) - item.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                // Remove if touching or very close (within 50px)
+                // Toxunursa və ya çox yaxındırsa (50px daxilində) sil
                 return dist > 50;
             });
         }
@@ -129,11 +129,11 @@ const GameCanvas: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Set initial size
+        // İlkin ölçünü təyin et
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Touch Events (Canvas Only - Fixes iOS Scroll/Zoom/Bubble)
+        // Touch Hadisələri (Yalnız Canvas - iOS Sürüşmə/Zoom/Bubble problemlərini həll edir)
         const handleTouchStart = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
             e.stopPropagation();
@@ -147,9 +147,9 @@ const GameCanvas: React.FC = () => {
             lastTouchTimeRef.current = Date.now();
         };
 
-        // Mouse Events (Window - Desktop Experience)
+        // Mouse Hadisələri (Pəncərə - Masaüstü Təcrübəsi)
         const handleMouseDown = () => {
-            // Ignore if touch was recently used (Ghost Click Prevention)
+            // Əgər touch bu yaxınlarda istifadə edilibsə məhəl qoyma (Ghost Click Prevention)
             if (Date.now() - lastTouchTimeRef.current < 500) return;
             gameStateRef.current.isHolding = true;
         };
@@ -158,17 +158,17 @@ const GameCanvas: React.FC = () => {
             gameStateRef.current.isHolding = false;
         };
 
-        // Prevent Global Scroll (Rubber Banding)
+        // Qlobal Sürüşmənin Qarşısını Al (Rubber Banding)
         const handleTouchMove = (e: TouchEvent) => {
             if (e.cancelable) e.preventDefault();
             e.stopPropagation();
         };
 
-        // Attach touch to canvas with non-passive to allow preventDefault
+        // preventDefault etməyə icazə vermək üçün touch-ı canvas-a non-passive ilə əlavə et
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
         canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-        // Prevent default touch actions (scrolling) on the canvas
+        // Canvas üzərində varsayılan touch hərəkətlərinin (sürüşmə) qarşısını al
         canvas.style.touchAction = 'none';
 
         window.addEventListener('mousedown', handleMouseDown);
@@ -184,7 +184,7 @@ const GameCanvas: React.FC = () => {
         };
     }, []);
 
-    // Sync dailyEarnings and difficulty to Ref
+    // dailyEarnings və çətinliyi (difficulty) Ref ilə sinxronlaşdır
     useEffect(() => {
         gameStateRef.current.dailyEarnings = dailyEarnings;
         gameStateRef.current.difficulty = difficulty;
@@ -197,12 +197,12 @@ const GameCanvas: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // --- Delta Time Calculation ---
+        // --- Delta Time Hesablaması ---
         let multiplier = 1;
         if (state.lastFrameTime !== 0) {
             const dt = time - state.lastFrameTime;
             multiplier = dt / 16.666;
-            // Cap multiplier to prevent huge jumps (lag protection)
+            // Böyük atlamaların qarşısını almaq üçün multiplikatoru məhdudlaşdır (lag protection)
             if (multiplier > 3) multiplier = 1;
         }
         state.lastFrameTime = time;
@@ -242,7 +242,7 @@ const GameCanvas: React.FC = () => {
 
         // --- Generator (Generator Logic - Time Based, No Multiplier Needed) ---
         if (time - state.lastObstacleTime > currentInterval) {
-            state.lastObstacleTime = time; // RESTORED: This fixed the infinite spawn bug
+            state.lastObstacleTime = time; // RESTORED: Sonsuz yaranma xətasını düzəltdi
 
             const minHeight = 50;
             const availableHeight = canvas.height - GAP_SIZE;
@@ -251,18 +251,18 @@ const GameCanvas: React.FC = () => {
             const bottomY = topHeight + GAP_SIZE;
             const bottomHeight = canvas.height - bottomY;
 
-            // --- Trend Logic for Colors ---
+            // --- Rənglər üçün Trend Məntiqi ---
             let trend: 'bull' | 'bear' | 'neutral' = 'neutral';
             if (state.obstacles.length >= 2) {
                 const lastTop = state.obstacles[state.obstacles.length - 2];
-                // Moving UP (Y gets smaller) => Bullish (Green)
-                // Moving DOWN (Y gets larger) => Bearish (Red)
+                // Yuxarı hərəkət (Y kiçilir) => Bullish (Yaşıl)
+                // Aşağı hərəkət (Y böyüyür) => Bearish (Qırmızı)
                 if (topHeight < lastTop.height - 5) {
                     trend = 'bull';
                 } else if (topHeight > lastTop.height + 5) {
                     trend = 'bear';
                 } else {
-                    trend = lastTop.trend; // Maintain previous trend if flat
+                    trend = lastTop.trend; // Düzdürsə əvvəlki trendi saxla
                 }
             }
 
@@ -290,7 +290,7 @@ const GameCanvas: React.FC = () => {
             const isGuaranteed = state.obstaclesSinceLastCoin >= 3;
 
             if (isBelowLimit && (isLucky || isGuaranteed)) {
-                // Reset counter because we spawned a coin
+                // Coin yaratdığımız üçün sayğacı sıfırla
                 state.obstaclesSinceLastCoin = 0;
 
                 // Konum: Boşluğun mərkəzində, bir az sağa-sola sürüşə bilər 
@@ -320,12 +320,12 @@ const GameCanvas: React.FC = () => {
                     value: bonusValue
                 });
             } else {
-                // Coin çıkmadıysa sayacı artır (Increment counter if no coin)
+                // Coin çıxmadısa sayğacı artır
                 state.obstaclesSinceLastCoin += 1;
             }
         }
 
-        // --- Hərəkət və Təmizlik (Movement & Cleanup - Apply Multiplier) ---
+        // --- Hərəkət və Təmizlik (Multiplikator Tətbiq Et) ---
         state.obstacles.forEach(obs => obs.x -= currentSpeed * multiplier);
         state.items.forEach(item => item.x -= currentSpeed * multiplier);
 
@@ -354,9 +354,6 @@ const GameCanvas: React.FC = () => {
                 state.obstaclesPassed += 1;
 
                 // Çətinlik yeniləməsi: Hər 10 maneə = 1 Səviyyə
-                // Update Difficulty: Every 10 obstacles = 1 Level
-                // Çətinlik yeniləməsi: Hər 10 maneə = 1 Səviyyə
-                // Update Difficulty: Every 10 obstacles = 1 Level
                 const newDifficulty = Math.min(Math.floor(state.obstaclesPassed / 10) + 1, 15);
                 if (newDifficulty !== state.difficulty) {
                     state.difficulty = newDifficulty;
@@ -406,7 +403,7 @@ const GameCanvas: React.FC = () => {
         // Təmizləmə (Clear)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // --- Arxa Plan Grid (Background Grid) ---
+        // --- Arxa Plan Grid ---
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.lineWidth = 1;
         const gridSize = 50;
@@ -424,26 +421,26 @@ const GameCanvas: React.FC = () => {
 
         // --- Maneələr (Obstacles) ---
         state.obstacles.forEach(obs => {
-            let strokeColor = '#64748b'; // Neutral Slate
+            let strokeColor = '#64748b'; // Neytral Slate
             let fillColor = 'rgba(148, 163, 184, 0.1)';
 
             if (obs.trend === 'bull') {
-                strokeColor = '#22c55e'; // Green
+                strokeColor = '#22c55e'; // Yaşıl
                 fillColor = 'rgba(34, 197, 94, 0.2)';
             } else if (obs.trend === 'bear') {
-                strokeColor = '#ef4444'; // Red
+                strokeColor = '#ef4444'; // Qırmızı
                 fillColor = 'rgba(239, 68, 68, 0.2)';
             }
 
-            // Base Background
+            // Fon (Base Background)
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-            // Tinted Background
+            // Rəngli Fon (Tinted Background)
             ctx.fillStyle = fillColor;
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-            // Border
+            // Çərçivə (Border)
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
             ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);

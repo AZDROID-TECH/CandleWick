@@ -6,7 +6,7 @@ interface GameState {
     score: number;
     highScore: number;
     coins: number;
-    dailyEarnings: number; // Redux state for daily tracking
+    dailyEarnings: number; // Günlük izləmə üçün Redux state
     dailyHighScore: number;
     weeklyHighScore: number;
     lastDailyReset: string; // Son sıfırlama vaxtı (ISO)
@@ -28,7 +28,7 @@ const initialState: GameState = {
     dailyEarnings: 0,
     dailyHighScore: 0,
     weeklyHighScore: 0,
-    lastDailyReset: new Date().toISOString(), // Default now
+    lastDailyReset: new Date().toISOString(), // Varsayılan: indi
     currentWeekId: "",
     adWatchCount: 0,
     isLoading: true,
@@ -68,9 +68,9 @@ export const gameSlice = createSlice({
             state.score += action.payload;
         },
         collectCoin: (state, action: PayloadAction<number>) => {
-            // Limit check is done in UI/Canvas before dispatching if possible, 
-            // but we can enforce here or just track.
-            // Let's enforce strictly here to be safe.
+            // Limit yoxlaması UI/Canvas tərəfində edilir,
+            // amma burada da məcburi etmək olar.
+            // Ehtiyat üçün burada ciddi yoxlama edək.
             const amount = action.payload;
             const MAX_DAILY_LIMIT = 1000;
 
@@ -79,9 +79,9 @@ export const gameSlice = createSlice({
                 state.dailyEarnings += amount;
                 state.sessionEarnings += amount;
             } else {
-                // If adding full amount exceeds, add partial? Or reject?
-                // Rejecting is simpler for now or partial fill.
-                // Let's fill up to limit.
+                // Əgər tam məbləğ limiti keçirsə, qismən əlavə edilsin? Və ya rədd edilsin?
+                // İndilik rədd etmək daha sadədir, amma qismən dolduraq.
+                // Limitə qədər dolduraq.
                 const allowed = Math.max(0, MAX_DAILY_LIMIT - state.dailyEarnings);
                 if (allowed > 0) {
                     state.coins += allowed;
@@ -91,13 +91,13 @@ export const gameSlice = createSlice({
             }
         },
         claimDoubleReward: (state) => {
-            // 2x Logic: User already got 1x during game. We add +1x more.
-            // Respect Daily Limit.
+            // 2x Məntiqi: İstifadəçi oyun zamanı 1x alıb. Biz +1x daha əlavə edirik.
+            // Günlük Limitə riayət et.
             const MAX_DAILY_LIMIT = 1000;
             const amountToAdd = state.sessionEarnings;
 
-            // Calculate remaining space in daily limit
-            // state.dailyEarnings already includes the 1x amount.
+            // Günlük limitdə qalan yeri hesabla
+            // state.dailyEarnings artıq 1x məbləği ehtiva edir.
             const allowed = Math.max(0, MAX_DAILY_LIMIT - state.dailyEarnings);
             const actualAdd = Math.min(amountToAdd, allowed);
 
@@ -106,7 +106,7 @@ export const gameSlice = createSlice({
                 state.dailyEarnings += actualAdd;
             }
 
-            // Exit Game (Reset to home state logic)
+            // Oyundan Çıx (Ana səhifə vəziyyətinə sıfırla)
             state.isPlaying = false;
             state.isGameOver = false;
             state.score = 0;

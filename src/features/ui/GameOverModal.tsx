@@ -69,23 +69,24 @@ const GameOverModal: React.FC = () => {
         }
     };
 
-    // Monetag Logic
+    // Monetag Məntiqi
     const showMonetagAd = (onReward: () => void) => {
         const showAdFn = (window as any).show_10324597;
 
         if (typeof showAdFn !== 'function') {
-            console.error("Monetag SDK (show_10324597) not loaded or denied.");
+            console.error("Monetag SDK (show_10324597) yüklənməyib və ya rədd edilib.");
             WebApp.showAlert(t('ad_load_error'));
             return;
         }
 
         WebApp.HapticFeedback.impactOccurred('light');
 
-        showAdFn().then(() => {
-            // Monetag Promise resolves when ad is finished/closed
+        // 'pop' arqumenti Rewarded Popup formatını məcbur edir
+        showAdFn('pop').then(() => {
+            // Monetag Promise reklam bitəndə/bağlananda həll olunur
             onReward();
         }).catch((err: any) => {
-            console.error("Monetag Ad Error:", err);
+            console.error("Monetag Reklam Xətası:", err);
         });
     };
 
