@@ -11,6 +11,7 @@ export interface FirestoreUser {
     weekly_high_score?: number;
     last_daily_reset: string; // Son sıfırlama tarixi (ISO string)
     current_week_id?: string;
+    country_code?: string; // ISO 2-letter (e.g. AZ, TR)
     created_at: string;
     last_login: string;
 }

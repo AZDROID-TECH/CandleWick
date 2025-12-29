@@ -38,8 +38,25 @@ export const useAuth = () => {
                         const storedResetDate = data.last_daily_reset || "";
                         const storedWeekId = data.current_week_id || "";
 
-                        // Əgər saxlanan tarix cari ABŞ tarixindən fərqlidirsə, sıfırlamanı işə sal
+                        // --- Country Code Check (One-off) ---
+                        let currentCountryCode = data.country_code;
+                        if (!currentCountryCode) {
+                            try {
+                                // Tasarruf Modu: Sadece country yoksa çağır
+                                const ipResponse = await fetch('https://ipapi.co/json/');
+                                if (ipResponse.ok) {
+                                    const ipData = await ipResponse.json();
+                                    if (ipData && ipData.country_code) {
+                                        currentCountryCode = ipData.country_code;
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("IPAPI Error:", error);
+                                // Səssizcə davam et, sonra yenə yoxlayacaq
+                            }
+                        }
 
+                        // Əgər saxlanan tarix cari ABŞ tarixindən fərqlidirsə, sıfırlamanı işə sal
                         const shouldResetDaily = storedResetDate !== currentUSDate;
                         const shouldResetWeekly = storedWeekId !== currentWeekId;
 
@@ -51,6 +68,10 @@ export const useAuth = () => {
                         const updateData: Partial<FirestoreUser> = {
                             last_login: new Date().toISOString()
                         }; // any YASAQDIR - Partial istifadə edirik
+
+                        if (currentCountryCode && currentCountryCode !== data.country_code) {
+                            updateData.country_code = currentCountryCode;
+                        }
 
 
                         if (shouldResetDaily) {
@@ -91,6 +112,20 @@ export const useAuth = () => {
                         const usDate = getUSDateString();
                         const weekId = getCurrentWeekId();
 
+                        // Yeni istifadəçi üçün də IPAPI yoxla
+                        let newCountryCode = "AZ"; // Fallback
+                        try {
+                            const ipResponse = await fetch('https://ipapi.co/json/');
+                            if (ipResponse.ok) {
+                                const ipData = await ipResponse.json();
+                                if (ipData && ipData.country_code) {
+                                    newCountryCode = ipData.country_code;
+                                }
+                            }
+                        } catch (e) {
+                            console.error("IPAPI New User Error:", e);
+                        }
+
                         await setDoc(userRef, {
                             user_id: telegramUser.id,
                             username: telegramUser.username || undefined, // Firestore undefined qəbul etmir, amma null da ola bilər, interfeysə uyğunlaşdırıldı
@@ -103,6 +138,7 @@ export const useAuth = () => {
                             weekly_high_score: 0, // YENİ
                             last_daily_reset: usDate,
                             current_week_id: weekId, // YENİ
+                            country_code: newCountryCode,
 
                             referrals: [],
                             completed_tasks: [],

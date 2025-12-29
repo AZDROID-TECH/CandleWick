@@ -10,6 +10,15 @@ interface LeaderboardProps {
     onClose: () => void;
 }
 
+const getFlagEmoji = (countryCode?: string) => {
+    if (!countryCode) return '🏳️'; // Unknown/World flag
+    const codePoints = countryCode
+        .toUpperCase()
+        .split('')
+        .map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+};
+
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<'weekly' | 'all_time'>('weekly');
@@ -158,7 +167,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                                     {index + 1}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="font-bold text-white text-sm">
+                                    <span className="font-bold text-white text-sm flex items-center gap-2">
+                                        <span className="text-lg">{getFlagEmoji(user.country_code)}</span>
                                         {user.first_name || t('anonymous')}
                                     </span>
                                     {/* <span className="text-xs text-slate-500">@{user.username}</span> */}
