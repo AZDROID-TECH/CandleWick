@@ -73,6 +73,7 @@ const GameCanvas: React.FC = () => {
 
     const requestRef = useRef<number>();
     const lastTouchTimeRef = useRef<number>(0);
+    const pendingResumeRef = useRef<boolean>(false); // Davam etmə (Resume) vəziyyətini izləmək üçün
 
     // Şəkillərin yüklənməsi (Load images)
     useEffect(() => {
@@ -94,8 +95,9 @@ const GameCanvas: React.FC = () => {
             // Ekranın mərkəzinə yerləşdir
             gameStateRef.current.y = canvas.height / 2 - CANDLE_HEIGHT / 2;
 
-            // 3. 5 saniyəlik ölümsüzlük ver
-            gameStateRef.current.immortalUntil = Date.now() + 5000;
+            // 3. Ölümsüzlüyü işarələ (Amma hələ başlatma, GO düyməsini gözlə)
+            pendingResumeRef.current = true;
+            // gameStateRef.current.immortalUntil = Date.now() + 5000; // BURADAN SİLİNDİ
         }
     }, [isResuming]);
 
@@ -507,6 +509,12 @@ const GameCanvas: React.FC = () => {
             gameStateRef.current.lastFrameTime = 0;
             // Overlap qarşısını almaq üçün zamanlayıcını sıfırla
             gameStateRef.current.lastObstacleTime = performance.now();
+
+            // Əgər "Devam Et"dən gəlirsə, ölümsüzlüyü İNDİ başlat
+            if (pendingResumeRef.current) {
+                gameStateRef.current.immortalUntil = Date.now() + 5000;
+                pendingResumeRef.current = false; // İşarəni sıfırla
+            }
             requestRef.current = requestAnimationFrame(update);
         } else {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
