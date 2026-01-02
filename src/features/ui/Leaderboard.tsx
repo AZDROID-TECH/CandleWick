@@ -5,6 +5,7 @@ import { collection, query, orderBy, limit, getDocs, where } from 'firebase/fire
 import db from '../../firebase/db';
 import { FirestoreUser } from '../../types/firestore';
 import WebApp from '@twa-dev/sdk';
+import { useAppSelector } from '../../app/hooks';
 
 interface LeaderboardProps {
     onClose: () => void;
@@ -21,7 +22,8 @@ const getFlagEmoji = (countryCode?: string) => {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<'weekly' | 'all_time'>('weekly');
+    const { friends } = useAppSelector(state => state.game);
+    const [activeTab, setActiveTab] = useState<'weekly' | 'all_time' | 'friends'>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [timeLeft, setTimeLeft] = useState("");
@@ -58,6 +60,49 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         orderBy('weekly_high_score', 'desc'),
                         limit(100)
                     );
+                } else if (activeTab === 'friends') {
+                    // Dostlar (Friends)
+                    // Dost siyahısını Redux-dan alaq, amma burada birbaşa çətinlik var, çünki Leaderboard componentinə props kimi gəlmir
+                    // Redux hook-u əlavə etməliyik, amma bu useEffect daxilindədir.
+                    // Ən təmizi: useEffect xaricində selectoru çağırmaq.
+                    // (Aşağıda düzəliş ediləcək)
+
+                    // Müvəqqəti olaraq qeyd: Logic aşağıda tam düzəldilir
+                    const currentWeekId = getCurrentWeekId();
+
+                    // Dost ID-ləri (useAppSelector ilə gələcək)
+                    // Burada placeholder logic:
+                    // if (friends.length === 0) setLeaders([]); return;
+
+                    // BATCH Fetching (Firestore IN limit: 30)
+                    const friendBatches = [];
+                    for (let i = 0; i < friends.length; i += 10) {
+                        friendBatches.push(friends.slice(i, i + 10));
+                    }
+
+                    const allFriendsDocs: FirestoreUser[] = [];
+
+                    for (const batch of friendBatches) {
+                        if (batch.length === 0) continue;
+                        const batchQ = query(
+                            usersRef,
+                            where('user_id', 'in', batch)
+                        );
+                        const batchSnap = await getDocs(batchQ);
+                        batchSnap.forEach(doc => {
+                            allFriendsDocs.push(doc.data() as FirestoreUser);
+                        });
+                    }
+
+                    // Client-side Sorting (Weekly by default)
+                    allFriendsDocs.sort((a, b) => {
+                        const scoreA = (a.current_week_id === currentWeekId) ? (a.weekly_high_score || 0) : 0;
+                        const scoreB = (b.current_week_id === currentWeekId) ? (b.weekly_high_score || 0) : 0;
+                        return scoreB - scoreA;
+                    });
+                    setLeaders(allFriendsDocs);
+                    setLoading(false);
+                    return; // Erkən qayıdış (Standard flow-dan fərqli)
                 } else {
                     // Bütün Zamanların Ən Yüksək Xalı (azalan)
                     q = query(usersRef, orderBy('high_score', 'desc'), limit(100));
@@ -130,6 +175,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         }`}
                 >
                     {t('all_time')}
+                </button>
+                <button
+                    onClick={() => {
+                        setActiveTab('friends');
+                        WebApp.HapticFeedback.selectionChanged();
+                    }}
+                    className={`px-4 py-2 rounded-lg font-bold text-lg transition-all flex items-center justify-center ${activeTab === 'friends' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-300'
+                        }`}
+                >
+                    <i className='bx bxs-group'></i>
                 </button>
             </div>
 

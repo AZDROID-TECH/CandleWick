@@ -5,6 +5,8 @@ export interface FirestoreUser {
     total_azc: number;
     high_score: number;
     referrals: number[];
+    referred_by?: number; // Kim tərəfindən dəvət edilib (Invited by whom)
+    friends: number[]; // Dostların ID siyahısı (List of friend IDs)
     completed_tasks: string[];
     daily_earnings: number; // Günlük qazanc (Daily earnings)
     daily_high_score?: number; // Günlük ən yüksək xal

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Leaderboard from './Leaderboard';
+import InviteModal from './InviteModal';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { startGame } from '../game/gameSlice';
@@ -12,6 +13,7 @@ const Home: React.FC = () => {
     const { highScore, coins, dailyEarnings } = useAppSelector(state => state.game);
     const user = WebApp.initDataUnsafe.user;
     const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
     const [currentTime, setCurrentTime] = useState<string>("");
 
@@ -129,6 +131,26 @@ const Home: React.FC = () => {
                         <div className="font-bold mb-0.5">{t('score_only_mode')}</div>
                         <div className="opacity-70 font-mono text-[10px]">{t('time_left')}: {timeLeft}</div>
                     </div>
+                )}
+
+                {/* Invite Friends Button */}
+                {/* Invite Friends Button */}
+                <button
+                    onClick={() => {
+                        WebApp.HapticFeedback.impactOccurred('light');
+                        setShowInviteModal(true);
+                    }}
+                    className="w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-200 rounded-xl mb-4 text-center text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                    <i className='bx bxs-user-plus text-lg'></i>
+                    {t('invite_friends')}
+                </button>
+
+                {showInviteModal && (
+                    <InviteModal
+                        onClose={() => setShowInviteModal(false)}
+                        inviteLink={`https://t.me/candle_wick_bot/play?startapp=${user?.id}`}
+                    />
                 )}
 
                 {/* Start Button */}

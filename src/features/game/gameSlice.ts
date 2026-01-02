@@ -17,6 +17,7 @@ interface GameState {
     isResuming: boolean;
     difficulty: number;
     gameSessionId: number;
+    friends: number[];
 }
 
 const initialState: GameState = {
@@ -36,6 +37,7 @@ const initialState: GameState = {
     isResuming: false,
     difficulty: 1,
     gameSessionId: 0,
+    friends: [],
 };
 
 export const gameSlice = createSlice({
@@ -120,13 +122,14 @@ export const gameSlice = createSlice({
         setHighScore: (state, action: PayloadAction<number>) => {
             state.highScore = action.payload;
         },
-        setUserData: (state, action: PayloadAction<{ total_azc: number, daily_earnings: number, daily_high_score: number, weekly_high_score: number, last_daily_reset: string, current_week_id: string }>) => {
+        setUserData: (state, action: PayloadAction<{ total_azc: number, daily_earnings: number, daily_high_score: number, weekly_high_score: number, last_daily_reset: string, current_week_id: string, friends: number[] }>) => {
             state.coins = action.payload.total_azc;
             state.dailyEarnings = action.payload.daily_earnings;
             state.dailyHighScore = action.payload.daily_high_score;
             state.weeklyHighScore = action.payload.weekly_high_score;
             state.lastDailyReset = action.payload.last_daily_reset;
             state.currentWeekId = action.payload.current_week_id;
+            state.friends = action.payload.friends;
             state.isLoading = false;
         },
         setDifficulty: (state, action: PayloadAction<number>) => {

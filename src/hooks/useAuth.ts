@@ -73,6 +73,41 @@ export const useAuth = () => {
                             updateData.country_code = currentCountryCode;
                         }
 
+                        // Dost sahəsi yoxdursa əlavə et (Migration)
+                        if (!data.friends) {
+                            updateData.friends = [];
+                        }
+
+                        // Mövcud istifadəçi link ilə gəlirsə və dost deyilsə
+                        const startParam = WebApp.initDataUnsafe.start_param;
+                        if (startParam) {
+                            const referrerId = parseInt(startParam);
+                            if (!isNaN(referrerId) && referrerId !== telegramUser.id) {
+                                const currentFriends = data.friends || [];
+                                if (!currentFriends.includes(referrerId)) {
+                                    // 1. Özünə dost əlavə et
+                                    updateData.friends = [...currentFriends, referrerId];
+
+                                    // 2. Digər tərəfə dost əlavə et (Async)
+                                    try {
+                                        const referrerRef = doc(db, 'users', referrerId.toString());
+                                        const referrerSnap = await getDoc(referrerRef);
+                                        if (referrerSnap.exists()) {
+                                            const referrerData = referrerSnap.data() as FirestoreUser;
+                                            const refFriends = referrerData.friends || [];
+                                            if (!refFriends.includes(telegramUser.id)) {
+                                                await updateDoc(referrerRef, {
+                                                    friends: [...refFriends, telegramUser.id]
+                                                });
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error("Mutual friend add error:", e);
+                                    }
+                                }
+                            }
+                        }
+
 
                         if (shouldResetDaily) {
                             // Yeni gün üçün günlük qazancı və rekordu sıfırla
@@ -103,7 +138,8 @@ export const useAuth = () => {
                             daily_high_score: currentDailyHighScore,
                             weekly_high_score: currentWeeklyHighScore,
                             last_daily_reset: newLastReset,
-                            current_week_id: shouldResetWeekly ? currentWeekId : storedWeekId || currentWeekId
+                            current_week_id: shouldResetWeekly ? currentWeekId : storedWeekId || currentWeekId,
+                            friends: data.friends || []
                         }));
                     } else {
                         // Yeni istifadəçi yarat
@@ -126,6 +162,8 @@ export const useAuth = () => {
                             console.error("IPAPI New User Error:", e);
                         }
 
+                        const startParam = WebApp.initDataUnsafe.start_param;
+
                         await setDoc(userRef, {
                             user_id: telegramUser.id,
                             username: telegramUser.username || undefined, // Firestore undefined qəbul etmir, amma null da ola bilər, interfeysə uyğunlaşdırıldı
@@ -141,10 +179,37 @@ export const useAuth = () => {
                             country_code: newCountryCode,
 
                             referrals: [],
+                            referred_by: startParam ? parseInt(startParam) : undefined,
+                            friends: startParam ? [parseInt(startParam)] : [], // Referral varsa dost kimi əlavə et
                             completed_tasks: [],
                             created_at: nowISO,
                             last_login: nowISO
                         });
+
+                        // Referral İşləməsi (Qarşılıqlı Dostluq)
+                        if (startParam) {
+                            const referrerId = parseInt(startParam);
+                            if (!isNaN(referrerId) && referrerId !== telegramUser.id) {
+                                try {
+                                    const referrerRef = doc(db, 'users', referrerId.toString());
+                                    const referrerSnap = await getDoc(referrerRef);
+
+                                    if (referrerSnap.exists()) {
+                                        const referrerData = referrerSnap.data() as FirestoreUser;
+                                        const currentFriends = referrerData.friends || [];
+
+                                        // Əgər yeni istifadəçi artıq dost siyahısında yoxdursa, əlavə et
+                                        if (!currentFriends.includes(telegramUser.id)) {
+                                            await updateDoc(referrerRef, {
+                                                friends: [...currentFriends, telegramUser.id]
+                                            });
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error("Referral processing error:", error);
+                                }
+                            }
+                        }
 
                         dispatch(setUserData({
                             total_azc: 0,
@@ -152,7 +217,8 @@ export const useAuth = () => {
                             daily_high_score: 0,
                             weekly_high_score: 0,
                             last_daily_reset: usDate,
-                            current_week_id: weekId
+                            current_week_id: weekId,
+                            friends: startParam ? [parseInt(startParam)] : []
                         }));
                     }
                 } else {
@@ -165,7 +231,8 @@ export const useAuth = () => {
                         daily_high_score: 0,
                         weekly_high_score: 0,
                         last_daily_reset: new Date().toISOString(),
-                        current_week_id: ""
+                        current_week_id: "",
+                        friends: []
                     }));
                 }
             } catch (error) {
