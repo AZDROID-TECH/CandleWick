@@ -16,7 +16,7 @@ export const useAuth = () => {
     useEffect(() => {
         const initAuth = async () => {
             let currentUserData: Partial<FirestoreUser> | null = null;
-            let isNewUser = false;
+
 
             try {
                 // 1. Firebase-ə anonim giriş (backend token hələ yoxdur)
@@ -148,7 +148,7 @@ export const useAuth = () => {
 
                     } else {
                         // Yeni İstifadəçi Yarat (New User Creation)
-                        isNewUser = true;
+
                         const nowISO = new Date().toISOString();
                         const usDate = getUSDateString();
                         const weekId = getCurrentWeekId();
