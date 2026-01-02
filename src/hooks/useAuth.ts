@@ -151,8 +151,16 @@ export const useAuth = () => {
                         // Yeni istifadəçi üçün də IPAPI yoxla
                         let newCountryCode = "AZ"; // Alternativ (Fallback)
                         try {
-                            const ipResponse = await fetch('https://ipapi.co/json/');
-                            if (ipResponse.ok) {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 saniyə timeout
+
+                            const ipResponse = await fetch('https://ipapi.co/json/', {
+                                signal: controller.signal
+                            }).catch(() => null);
+
+                            clearTimeout(timeoutId);
+
+                            if (ipResponse && ipResponse.ok) {
                                 const ipData = await ipResponse.json();
                                 if (ipData && ipData.country_code) {
                                     newCountryCode = ipData.country_code;
@@ -179,8 +187,8 @@ export const useAuth = () => {
                             country_code: newCountryCode,
 
                             referrals: [],
-                            referred_by: startParam ? parseInt(startParam) : undefined,
-                            friends: startParam ? [parseInt(startParam)] : [], // Referral varsa dost kimi əlavə et
+                            referred_by: (startParam && !isNaN(parseInt(startParam))) ? parseInt(startParam) : undefined,
+                            friends: (startParam && !isNaN(parseInt(startParam))) ? [parseInt(startParam)] : [], // Referral varsa dost kimi əlavə et
                             completed_tasks: [],
                             created_at: nowISO,
                             last_login: nowISO
