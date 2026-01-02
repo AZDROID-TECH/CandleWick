@@ -15,22 +15,27 @@ export const useAuth = () => {
 
     useEffect(() => {
         const initAuth = async () => {
-            // 1. Firebase-ə anonim giriş (backend token hələ yoxdur)
+            let currentUserData: Partial<FirestoreUser> | null = null;
+            let isNewUser = false;
+
             try {
+                // 1. Firebase-ə anonim giriş (backend token hələ yoxdur)
+                // 1. Anonymous login to Firebase
                 const userCredential = await signInAnonymously(auth);
                 setUser(userCredential.user);
 
                 // 2. Telegram ID istifadə edərək Firestore ilə sinxronizasiya
-
+                // 2. Sync with Firestore using Telegram ID
                 const telegramUser = WebApp.initDataUnsafe.user;
+
                 if (telegramUser) {
                     const userRef = doc(db, 'users', telegramUser.id.toString());
                     const userSnap = await getDoc(userRef);
 
                     if (userSnap.exists()) {
-                        // Məlumatları yüklə
+                        // Məlumatları yüklə (Mövcud İstifadəçi)
+                        // Load data (Existing User)
                         const data = userSnap.data() as FirestoreUser;
-
 
                         const currentUSDate = getUSDateString();
                         const currentWeekId = getCurrentWeekId();
@@ -42,32 +47,32 @@ export const useAuth = () => {
                         let currentCountryCode = data.country_code;
                         if (!currentCountryCode) {
                             try {
-                                // Tasarruf Modu: Sadece country yoksa çağır
-                                const ipResponse = await fetch('https://ipapi.co/json/');
-                                if (ipResponse.ok) {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                                const ipResponse = await fetch('https://ipapi.co/json/', {
+                                    signal: controller.signal
+                                }).catch(() => null);
+                                clearTimeout(timeoutId);
+
+                                if (ipResponse && ipResponse.ok) {
                                     const ipData = await ipResponse.json();
                                     if (ipData && ipData.country_code) {
                                         currentCountryCode = ipData.country_code;
                                     }
                                 }
                             } catch (error) {
-                                console.error("IPAPI Error:", error);
-                                // Səssizcə davam et, sonra yenə yoxlayacaq
+                                // Səssizcə davam et (Fail silently)
                             }
                         }
 
-                        // Əgər saxlanan tarix cari ABŞ tarixindən fərqlidirsə, sıfırlamanı işə sal
+                        // Günlük və Həftəlik sıfırlama yoxlanışı
                         const shouldResetDaily = storedResetDate !== currentUSDate;
                         const shouldResetWeekly = storedWeekId !== currentWeekId;
 
-                        let currentDailyEarnings = data.daily_earnings || 0;
-                        let currentDailyHighScore = data.daily_high_score || 0;
-                        let currentWeeklyHighScore = data.weekly_high_score || 0;
-                        let newLastReset = storedResetDate;
-
                         const updateData: Partial<FirestoreUser> = {
                             last_login: new Date().toISOString()
-                        }; // any YASAQDIR - Partial istifadə edirik
+                        };
 
                         if (currentCountryCode && currentCountryCode !== data.country_code) {
                             updateData.country_code = currentCountryCode;
@@ -78,19 +83,20 @@ export const useAuth = () => {
                             updateData.friends = [];
                         }
 
-                        // Mövcud istifadəçi link ilə gəlirsə və dost deyilsə
+                        // Mövcud istifadəçi link ilə gəlirsə və dost deyilsə (Referral)
                         const startParam = WebApp.initDataUnsafe.start_param;
                         if (startParam) {
                             const referrerId = parseInt(startParam);
                             if (!isNaN(referrerId) && referrerId !== telegramUser.id) {
                                 const currentFriends = data.friends || [];
+                                // Yerli dost siyahısında yoxdursa
                                 if (!currentFriends.includes(referrerId)) {
-                                    // 1. Özünə dost əlavə et
                                     updateData.friends = [...currentFriends, referrerId];
 
-                                    // 2. Digər tərəfə dost əlavə et (Async)
+                                    // Qarşı tərəfə də dost əlavə et (Async)
                                     try {
                                         const referrerRef = doc(db, 'users', referrerId.toString());
+                                        // Sadəcə arrayUnion istifadə edə bilərik, amma oxuyub-yazmaq daha təhlükəsizdir (bütün datanı görmək üçün)
                                         const referrerSnap = await getDoc(referrerRef);
                                         if (referrerSnap.exists()) {
                                             const referrerData = referrerSnap.data() as FirestoreUser;
@@ -108,56 +114,54 @@ export const useAuth = () => {
                             }
                         }
 
+                        // Reset Logic
+                        let finalDailyEarnings = data.daily_earnings || 0;
+                        let finalDailyHighScore = data.daily_high_score || 0;
+                        let finalWeeklyHighScore = data.weekly_high_score || 0;
+                        let finalLastReset = storedResetDate;
 
                         if (shouldResetDaily) {
-                            // Yeni gün üçün günlük qazancı və rekordu sıfırla
-
-                            currentDailyEarnings = 0;
-                            currentDailyHighScore = 0;
-                            newLastReset = currentUSDate;
-
+                            finalDailyEarnings = 0;
+                            finalDailyHighScore = 0;
+                            finalLastReset = currentUSDate;
                             updateData.daily_earnings = 0;
                             updateData.daily_high_score = 0;
-                            updateData.last_daily_reset = newLastReset;
+                            updateData.last_daily_reset = finalLastReset;
                         }
 
                         if (shouldResetWeekly) {
-                            currentWeeklyHighScore = 0;
+                            finalWeeklyHighScore = 0;
                             updateData.weekly_high_score = 0;
                             updateData.current_week_id = currentWeekId;
                         }
 
                         await updateDoc(userRef, updateData);
 
-                        dispatch(setHighScore(data.high_score || 0));
-                        // İstifadəçi Məlumatlarını Sinxronlaşdır
+                        currentUserData = {
+                            ...data,
+                            daily_earnings: finalDailyEarnings,
+                            daily_high_score: finalDailyHighScore,
+                            weekly_high_score: finalWeeklyHighScore,
+                            last_daily_reset: finalLastReset,
+                            friends: updateData.friends || data.friends || []
+                        };
 
-                        dispatch(setUserData({
-                            total_azc: data.total_azc || 0,
-                            daily_earnings: currentDailyEarnings,
-                            daily_high_score: currentDailyHighScore,
-                            weekly_high_score: currentWeeklyHighScore,
-                            last_daily_reset: newLastReset,
-                            current_week_id: shouldResetWeekly ? currentWeekId : storedWeekId || currentWeekId,
-                            friends: data.friends || []
-                        }));
                     } else {
-                        // Yeni istifadəçi yarat
-
+                        // Yeni İstifadəçi Yarat (New User Creation)
+                        isNewUser = true;
                         const nowISO = new Date().toISOString();
                         const usDate = getUSDateString();
                         const weekId = getCurrentWeekId();
 
-                        // Yeni istifadəçi üçün də IPAPI yoxla
-                        let newCountryCode = "AZ"; // Alternativ (Fallback)
+                        // IPAPI time-out ilə
+                        let newCountryCode = "AZ";
                         try {
                             const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 saniyə timeout
+                            const timeoutId = setTimeout(() => controller.abort(), 2000);
 
                             const ipResponse = await fetch('https://ipapi.co/json/', {
                                 signal: controller.signal
                             }).catch(() => null);
-
                             clearTimeout(timeoutId);
 
                             if (ipResponse && ipResponse.ok) {
@@ -167,72 +171,105 @@ export const useAuth = () => {
                                 }
                             }
                         } catch (e) {
-                            console.error("IPAPI New User Error:", e);
+                            // Ignore error
                         }
 
                         const startParam = WebApp.initDataUnsafe.start_param;
+                        const referrerId = (startParam && !isNaN(parseInt(startParam))) ? parseInt(startParam) : undefined;
+                        const initialFriends = (referrerId && referrerId !== telegramUser.id) ? [referrerId] : [];
 
-                        await setDoc(userRef, {
+                        const newUser: FirestoreUser = {
                             user_id: telegramUser.id,
-                            username: telegramUser.username || undefined, // Firestore undefined qəbul etmir, amma null da ola bilər, interfeysə uyğunlaşdırıldı
-
+                            username: telegramUser.username || undefined,
                             first_name: telegramUser.first_name || 'Anonymous',
                             total_azc: 0,
                             high_score: 0,
                             daily_earnings: 0,
                             daily_high_score: 0,
-                            weekly_high_score: 0, // YENİ
-                            last_daily_reset: usDate,
-                            current_week_id: weekId, // YENİ
-                            country_code: newCountryCode,
-
-                            referrals: [],
-                            referred_by: (startParam && !isNaN(parseInt(startParam))) ? parseInt(startParam) : undefined,
-                            friends: (startParam && !isNaN(parseInt(startParam))) ? [parseInt(startParam)] : [], // Referral varsa dost kimi əlavə et
-                            completed_tasks: [],
-                            created_at: nowISO,
-                            last_login: nowISO
-                        });
-
-                        // Referral İşləməsi (Qarşılıqlı Dostluq)
-                        if (startParam) {
-                            const referrerId = parseInt(startParam);
-                            if (!isNaN(referrerId) && referrerId !== telegramUser.id) {
-                                try {
-                                    const referrerRef = doc(db, 'users', referrerId.toString());
-                                    const referrerSnap = await getDoc(referrerRef);
-
-                                    if (referrerSnap.exists()) {
-                                        const referrerData = referrerSnap.data() as FirestoreUser;
-                                        const currentFriends = referrerData.friends || [];
-
-                                        // Əgər yeni istifadəçi artıq dost siyahısında yoxdursa, əlavə et
-                                        if (!currentFriends.includes(telegramUser.id)) {
-                                            await updateDoc(referrerRef, {
-                                                friends: [...currentFriends, telegramUser.id]
-                                            });
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.error("Referral processing error:", error);
-                                }
-                            }
-                        }
-
-                        dispatch(setUserData({
-                            total_azc: 0,
-                            daily_earnings: 0,
-                            daily_high_score: 0,
                             weekly_high_score: 0,
                             last_daily_reset: usDate,
                             current_week_id: weekId,
-                            friends: startParam ? [parseInt(startParam)] : []
-                        }));
+                            country_code: newCountryCode,
+                            referrals: [],
+                            referred_by: (referrerId && referrerId !== telegramUser.id) ? referrerId : undefined,
+                            friends: initialFriends,
+                            completed_tasks: [],
+                            created_at: nowISO,
+                            last_login: nowISO
+                        };
+
+                        await setDoc(userRef, newUser);
+                        currentUserData = newUser;
+
+                        // Referral Update Logic
+                        if (referrerId && referrerId !== telegramUser.id) {
+                            try {
+                                const referrerRef = doc(db, 'users', referrerId.toString());
+                                const referrerSnap = await getDoc(referrerRef);
+
+                                if (referrerSnap.exists()) {
+                                    const referrerData = referrerSnap.data() as FirestoreUser;
+                                    const currentFriends = referrerData.friends || [];
+
+                                    if (!currentFriends.includes(telegramUser.id)) {
+                                        await updateDoc(referrerRef, {
+                                            friends: [...currentFriends, telegramUser.id]
+                                        });
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Referral processing error:", error);
+                            }
+                        }
                     }
                 } else {
-                    // Brauzer/test mühiti üçün alternativ
-                    console.log("Telegram istifadəçisi aşkarlanmadı, saxta məlumatlar yüklənir.");
+                    // Brauzer mühiti (Browser Env - Mock Data)
+                    // console.log("Telegram user not found, using mock data");
+                    // Brauzerdə test edərkən sonsuz yükləmə olmasın deyə boş data qaytar
+                    currentUserData = {
+                        total_azc: 0,
+                        daily_earnings: 0,
+                        daily_high_score: 0,
+                        weekly_high_score: 0,
+                        last_daily_reset: new Date().toISOString(),
+                        current_week_id: "",
+                        friends: []
+                    } as Partial<FirestoreUser>; // Partial olaraq təyin etdik
+                }
 
+            } catch (error) {
+                console.error("Auth Error:", error);
+                // HƏTTA SƏHV OLSA BELƏ OYUNU AÇ (Fallback to Guest/Offline)
+                // Even on error, ensure game loads so user is not stuck
+                if (!currentUserData) {
+                    currentUserData = {
+                        total_azc: 0,
+                        daily_earnings: 0,
+                        daily_high_score: 0,
+                        weekly_high_score: 0,
+                        last_daily_reset: new Date().toISOString(),
+                        current_week_id: "",
+                        friends: []
+                    } as Partial<FirestoreUser>; // Partial olaraq təyin etdik
+                }
+            } finally {
+                // Hər zaman dispatch et ki, loading bitsin
+                // Always dispatch to stop loading state
+                if (currentUserData) {
+                    dispatch(setUserData({
+                        total_azc: currentUserData.total_azc || 0,
+                        daily_earnings: currentUserData.daily_earnings || 0,
+                        daily_high_score: currentUserData.daily_high_score || 0,
+                        weekly_high_score: currentUserData.weekly_high_score || 0,
+                        last_daily_reset: currentUserData.last_daily_reset || new Date().toISOString(),
+                        current_week_id: currentUserData.current_week_id || "",
+                        friends: currentUserData.friends || []
+                    }));
+                    if (currentUserData.high_score) {
+                        dispatch(setHighScore(currentUserData.high_score));
+                    }
+                } else {
+                    // Should not happen due to catch block, but safety net
                     dispatch(setUserData({
                         total_azc: 0,
                         daily_earnings: 0,
@@ -243,14 +280,13 @@ export const useAuth = () => {
                         friends: []
                     }));
                 }
-            } catch (error) {
-                console.error("Giriş uğursuz oldu", error);
             }
-
         };
 
-        initAuth();
-    }, [dispatch]);
+        if (!user) {
+            initAuth();
+        }
+    }, [dispatch, user]);
 
     return { user };
 };
