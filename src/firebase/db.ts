@@ -1,6 +1,8 @@
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import app from './client';
 
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+    ignoreUndefinedProperties: true
+});
 
 export default db;

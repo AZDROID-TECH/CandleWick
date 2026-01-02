@@ -12,5 +12,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+console.log("🔥 Firebase Initialized for Project:", firebaseConfig.projectId);
 
 export default app;

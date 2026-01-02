@@ -19,17 +19,19 @@ export const useAuth = () => {
 
 
             try {
-                // 1. Firebase-ə anonim giriş (backend token hələ yoxdur)
-                // 1. Anonymous login to Firebase
+                console.log("1. Starting Firebase Anonymous Auth...");
                 const userCredential = await signInAnonymously(auth);
                 setUser(userCredential.user);
+                console.log("2. Firebase Auth Success:", userCredential.user.uid);
 
                 // 2. Telegram ID istifadə edərək Firestore ilə sinxronizasiya
                 // 2. Sync with Firestore using Telegram ID
                 const telegramUser = WebApp.initDataUnsafe.user;
 
                 if (telegramUser) {
+                    console.log("3. Telegram User detected:", telegramUser.id);
                     const userRef = doc(db, 'users', telegramUser.id.toString());
+                    console.log("4. Fetching user document from Firestore...");
                     const userSnap = await getDoc(userRef);
 
                     if (userSnap.exists()) {
@@ -135,7 +137,14 @@ export const useAuth = () => {
                             updateData.current_week_id = currentWeekId;
                         }
 
-                        await updateDoc(userRef, updateData);
+                        try {
+                            console.log("Attempting updateDoc for existing user...");
+                            await updateDoc(userRef, updateData);
+                            console.log("6. Firestore Update SUCCESS!");
+                        } catch (updateError: any) {
+                            console.error("FIRESTORE UPDATE ERROR:", updateError.code, updateError.message);
+                            throw updateError;
+                        }
 
                         currentUserData = {
                             ...data,
@@ -198,8 +207,16 @@ export const useAuth = () => {
                             last_login: nowISO
                         };
 
-                        await setDoc(userRef, newUser);
-                        currentUserData = newUser;
+                        console.log("5b. New user data prepared:", JSON.stringify(newUser));
+                        try {
+                            console.log("Attempting setDoc...");
+                            await setDoc(userRef, newUser);
+                            console.log("6. Firestore Write SUCCESS for new user!");
+                            currentUserData = newUser;
+                        } catch (firestoreError: any) {
+                            console.error("FIRESTORE WRITE ERROR:", firestoreError.code, firestoreError.message);
+                            throw firestoreError; // Yuxarıdakı catch blokuna ötür
+                        }
 
                         // Referral Update Logic
                         if (referrerId && referrerId !== telegramUser.id) {
@@ -238,7 +255,7 @@ export const useAuth = () => {
                 }
 
             } catch (error) {
-                console.error("Auth Error:", error);
+                console.error("Critical Auth/Firestore Error:", error);
                 // HƏTTA SƏHV OLSA BELƏ OYUNU AÇ (Fallback to Guest/Offline)
                 // Even on error, ensure game loads so user is not stuck
                 if (!currentUserData) {
@@ -250,7 +267,7 @@ export const useAuth = () => {
                         last_daily_reset: new Date().toISOString(),
                         current_week_id: "",
                         friends: []
-                    } as Partial<FirestoreUser>; // Partial olaraq təyin etdik
+                    } as any;
                 }
             } finally {
                 // Hər zaman dispatch et ki, loading bitsin
