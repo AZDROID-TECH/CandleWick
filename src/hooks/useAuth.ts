@@ -38,7 +38,7 @@ export const useAuth = () => {
                         const storedResetDate = data.last_daily_reset || "";
                         const storedWeekId = data.current_week_id || "";
 
-                        // --- Country Code Check (One-off) ---
+                        // --- Ölkə Kodu Yoxlaması (Tək səfərlik) ---
                         let currentCountryCode = data.country_code;
                         if (!currentCountryCode) {
                             try {
@@ -113,7 +113,7 @@ export const useAuth = () => {
                         const weekId = getCurrentWeekId();
 
                         // Yeni istifadəçi üçün də IPAPI yoxla
-                        let newCountryCode = "AZ"; // Fallback
+                        let newCountryCode = "AZ"; // Alternativ (Fallback)
                         try {
                             const ipResponse = await fetch('https://ipapi.co/json/');
                             if (ipResponse.ok) {
@@ -156,7 +156,7 @@ export const useAuth = () => {
                         }));
                     }
                 } else {
-                    // Brauzer/test mühiti üçün fallback
+                    // Brauzer/test mühiti üçün alternativ
                     console.log("Telegram istifadəçisi aşkarlanmadı, saxta məlumatlar yüklənir.");
 
                     dispatch(setUserData({

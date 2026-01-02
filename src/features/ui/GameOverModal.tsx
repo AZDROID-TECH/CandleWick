@@ -9,7 +9,7 @@ const GameOverModal: React.FC = () => {
     const dispatch = useAppDispatch();
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
-    // Adsgram Logic
+    // Adsgram Məntiqi
     const showAdsgramAd = async (blockId: string | undefined, onReward: () => void) => {
         const loadScript = () => {
             return new Promise<void>((resolve, reject) => {
@@ -38,28 +38,27 @@ const GameOverModal: React.FC = () => {
 
             const AdController = (window as any).Adsgram.init({
                 blockId: blockId,
-                debug: false // Production mode
+                debug: false // Production rejimi
             });
 
             const startTime = Date.now();
 
             AdController.show().then(() => {
-                // Check if ad was closed too quickly (e.g. < 5 seconds)
-                // Some ads might be short (6s), so 5s is a safe lower bound to detect immediate skips.
-                // User mentioned 2-3 seconds skip capability.
+                // Reklamın çox tez bağlanıb-bağlanmadığını yoxlayın (məsələn < 15 saniyə)
+                // Bəzi reklamlar qısa ola bilər, lakin 15s dərhal keçmələri aşkar etmək üçün təhlükəsiz həddir.
                 const elapsed = Date.now() - startTime;
 
                 if (elapsed < 15000) {
                     WebApp.HapticFeedback.notificationOccurred('error');
-                    // We use a simple alert or standard webapp popup
+                    // Sadə bir xəbərdarlıq və ya popup istifadə edirik
                     WebApp.showAlert(t('ad_warning_short'));
                     return;
                 }
 
-                // user listen your ad till the end
+                // İstifadəçi reklamı sona qədər izlədi
                 onReward();
             }).catch((result: any) => {
-                // user skip ad or get error 
+                // İstifadəçi reklamı keçdi və ya xəta aldı
                 console.log('Adsgram error or skip:', result);
             });
 
@@ -91,7 +90,7 @@ const GameOverModal: React.FC = () => {
     };
 
     const handleContinue = () => {
-        // Use Monetag for "Continue"
+        // "Davam Et" üçün Monetag istifadə et
         showMonetagAd(() => {
             dispatch(continueGame());
         });
@@ -103,7 +102,7 @@ const GameOverModal: React.FC = () => {
     };
 
     const handleDoubleClaim = () => {
-        // Use Adsgram for "2x Claim"
+        // "2x Mükafat" üçün Adsgram istifadə et
         const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID_2X;
         showAdsgramAd(blockId, () => {
             WebApp.HapticFeedback.notificationOccurred('success');
@@ -138,7 +137,7 @@ const GameOverModal: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                    {/* 1. Instant Restart */}
+                    {/* 1. Dərhal Yenidən Başlat */}
                     <button
                         onClick={handleRestart}
                         className="w-full py-4 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-black text-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
@@ -147,7 +146,7 @@ const GameOverModal: React.FC = () => {
                         {t('restart')}
                     </button>
 
-                    {/* 2. Watch Ad (Continue) */}
+                    {/* 2. Reklam İzlə (Davam Et) */}
                     {remainingAds > 0 ? (
                         <button
                             onClick={handleContinue}
@@ -162,9 +161,9 @@ const GameOverModal: React.FC = () => {
                         </button>
                     )}
 
-                    {/* 3. Split: Exit vs 2x Claim */}
+                    {/* 3. Seçim: Çıxış vs 2x Mükafat */}
                     <div className="flex gap-3 mt-2">
-                        {/* Exit / Claim 1x */}
+                        {/* Çıxış / 1x Mükafat */}
                         <button
                             onClick={() => {
                                 WebApp.HapticFeedback.impactOccurred('light');
@@ -175,7 +174,7 @@ const GameOverModal: React.FC = () => {
                             {t('claim_exit')}
                         </button>
 
-                        {/* Double Claim 2x */}
+                        {/* 2x Mükafat */}
                         <button
                             onClick={handleDoubleClaim}
                             className="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-colors"

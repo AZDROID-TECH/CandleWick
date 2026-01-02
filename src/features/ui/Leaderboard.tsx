@@ -11,7 +11,7 @@ interface LeaderboardProps {
 }
 
 const getFlagEmoji = (countryCode?: string) => {
-    if (!countryCode) return '🏳️'; // Unknown/World flag
+    if (!countryCode) return '🏳️'; // Naməlum/Dünya bayrağı
     const codePoints = countryCode
         .toUpperCase()
         .split('')
@@ -32,15 +32,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 const ms = getTimeUntilWeeklyReset();
                 setTimeLeft(formatTimeRemaining(ms));
             };
-            updateTimer(); // Initial call
-            const interval = setInterval(updateTimer, 60000); // 1 min update is enough for d/h/m
+            updateTimer(); // İlkin çağırış
+            const interval = setInterval(updateTimer, 60000); // 1 dəqiqəlik yeniləmə kafi
             return () => clearInterval(interval);
         }
     }, [activeTab]);
 
     useEffect(() => {
         let isCancelled = false;
-        // ... (rest is same)
 
         const fetchLeaders = async () => {
             setLoading(true);
@@ -50,18 +49,18 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 let q;
 
                 if (activeTab === 'weekly') {
-                    // Weekly High Score
+                    // Həftəlik Yüksek Xal
                     const currentWeekId = getCurrentWeekId();
 
                     q = query(
                         usersRef,
                         where('current_week_id', '==', currentWeekId),
                         orderBy('weekly_high_score', 'desc'),
-                        limit(20)
+                        limit(100)
                     );
                 } else {
-                    // All Time High Score (desc)
-                    q = query(usersRef, orderBy('high_score', 'desc'), limit(20));
+                    // Bütün Zamanların Ən Yüksək Xalı (azalan)
+                    q = query(usersRef, orderBy('high_score', 'desc'), limit(100));
                 }
 
                 const snapshot = await getDocs(q);
@@ -78,7 +77,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     console.error("Error fetching leaderboard:", error);
                     if (error?.message?.includes('index')) {
                         console.error("FIRESTORE INDEX MISSING. Click the link in console to create it.");
-                        // Optional: You could show a UI message here if you want
+                        // İstəyə bağlı: Burada UI mesajı göstərilə bilər
                     }
                 }
             } finally {
@@ -95,7 +94,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center p-4 overflow-hidden">
-            {/* Header */}
+            {/* Başlıq (Header) */}
             <div className="w-full flex justify-between items-center mb-6">
                 <button
                     onClick={() => {
@@ -107,10 +106,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     <i className='bx bx-arrow-back'></i>
                 </button>
                 <h2 className="text-2xl font-black text-white uppercase tracking-wider">{t('leaderboard')}</h2>
-                <div className="w-6"></div> {/* Spacer */}
+                <div className="w-6"></div> {/* Boşluq (Spacer) */}
             </div>
 
-            {/* Tabs */}
+            {/* Tablar (Tabs) */}
             <div className="w-full max-w-md flex bg-slate-800 rounded-xl p-1 mb-6 relative z-10">
                 <button
                     onClick={() => {
@@ -134,7 +133,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 </button>
             </div>
 
-            {/* Weekly Countdown Timer */}
+            {/* Həftəlik Geri Sayım (Weekly Countdown Timer) */}
             {activeTab === 'weekly' && timeLeft && (
                 <div className="w-full max-w-md flex justify-center -mt-5 mb-4 z-0">
                     <div className="bg-slate-900/50 backdrop-blur-sm px-4 py-1.5 rounded-b-xl border border-t-0 border-slate-700/50 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
@@ -145,7 +144,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 </div>
             )}
 
-            {/* List */}
+            {/* Siyahı (List) */}
             <div className="w-full max-w-md flex-1 overflow-y-auto hide-scrollbar space-y-3 pb-8">
                 {loading ? (
                     <div className="text-center text-slate-500 mt-10 animate-pulse">
@@ -184,7 +183,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     ))
                 )}
             </div>
-            {/* Home Button */}
+            {/* Ana Səhifə Düyməsi (Home Button) */}
             <div className="w-full max-w-md mt-4">
                 <button
                     onClick={() => {

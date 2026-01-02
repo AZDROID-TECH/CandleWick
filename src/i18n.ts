@@ -7,7 +7,7 @@ const resources = {
         translation: {
             "start_game": "Start Game",
             "leaderboard": "Leaderboard",
-            "withdraw": "Withdraw",
+            "market": "Market",
             "earn_money": "Earn Money Systems",
             "coming_soon": "Coming Soon",
             "score": "Score",
@@ -47,7 +47,7 @@ const resources = {
         translation: {
             "start_game": "Oyuna Başla",
             "leaderboard": "Liderlər",
-            "withdraw": "Çıxarış",
+            "market": "Mağaza",
             "earn_money": "Pul Qazanma Sistemləri",
             "coming_soon": "Tezliklə",
             "score": "Xal",

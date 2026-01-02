@@ -3,7 +3,8 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { endGame, incrementScore, collectCoin, setDifficulty } from './gameSlice';
 import WebApp from '@twa-dev/sdk';
 import AZCashLogo from '../../assets/AZCash.logo.png';
-// Oyun Parametrləri (Game Parameters)
+
+// Oyun Parametrləri
 const GRAVITY = 0.5;
 const LIFT = -0.8;
 const BASE_SCROLL_SPEED = 3;
@@ -64,7 +65,7 @@ const GameCanvas: React.FC = () => {
         score: 0,
         obstaclesPassed: 0, // Keçilən maneə sayı
         dailyEarnings: 0,
-        obstaclesSinceLastCoin: 0, // Bad Luck Protection üçün sayğac
+        obstaclesSinceLastCoin: 0, // Şanssızlıqdan qoruma üçün sayğac
         lastObstacleTime: 0,
         lastFrameTime: 0,
         difficulty: 1,
@@ -73,21 +74,21 @@ const GameCanvas: React.FC = () => {
 
     const requestRef = useRef<number>();
     const lastTouchTimeRef = useRef<number>(0);
-    const pendingResumeRef = useRef<boolean>(false); // Davam etmə (Resume) vəziyyətini izləmək üçün
+    const pendingResumeRef = useRef<boolean>(false); // Davam etmə vəziyyətini izləmək üçün
 
-    // Şəkillərin yüklənməsi (Load images)
+    // Şəkillərin yüklənməsi
     useEffect(() => {
         bonusImageRef.current.src = AZCashLogo;
     }, []);
 
-    // Davam etmədə (Resume) Təhlükəsizlik Sıfırlaması
+    // Davam etmədə Təhlükəsizlik Sıfırlaması
     useEffect(() => {
         if (isResuming && canvasRef.current) {
             const canvas = canvasRef.current;
-            // Dəqiq Davam Etmə Məntiqi (YENİLƏNDİ):
+            // Dəqiq Davam Etmə Məntiqi:
             // 1. Oyunçunu mərkəzə yerləşdir.
             // 2. Maneələri SİLMƏ.
-            // 3. 3 saniyəlik ölümsüzlük ver.
+            // 3. Ölümsüzlüyü işarələ.
 
             gameStateRef.current.velocity = 0; // Stabilizasiya
             gameStateRef.current.isHolding = false;
@@ -97,7 +98,6 @@ const GameCanvas: React.FC = () => {
 
             // 3. Ölümsüzlüyü işarələ (Amma hələ başlatma, GO düyməsini gözlə)
             pendingResumeRef.current = true;
-            // gameStateRef.current.immortalUntil = Date.now() + 5000; // BURADAN SİLİNDİ
         }
     }, [isResuming]);
 
@@ -178,25 +178,25 @@ const GameCanvas: React.FC = () => {
         if (state.lastFrameTime !== 0) {
             const dt = time - state.lastFrameTime;
             multiplier = dt / 16.666;
-            // Böyük atlamaların qarşısını almaq üçün multiplikatoru məhdudlaşdır (lag protection)
+            // Böyük atlamaların qarşısını almaq üçün multiplikatoru məhdudlaşdır (gecikmə qoruması)
             if (multiplier > 3) multiplier = 1;
         }
         state.lastFrameTime = time;
 
-        // --- Fizika (Physics) ---
+        // --- Fizika ---
         if (state.isHolding) {
             state.velocity += LIFT * multiplier;
         } else {
             state.velocity += GRAVITY * multiplier;
         }
 
-        // Terminal sürət (Max speed)
+        // Terminal sürət (Maks sürət)
         state.velocity = Math.max(Math.min(state.velocity, 8), -8);
 
-        // Mövqe dəyişimi (Position change)
+        // Mövqe dəyişimi
         state.y += state.velocity * multiplier;
 
-        // Sərhədlər (Boundaries)
+        // Sərhədlər
         if (state.y < 0) { state.y = 0; state.velocity = 0; }
         if (state.y > canvas.height - CANDLE_HEIGHT) {
             dispatch(endGame());
@@ -204,25 +204,25 @@ const GameCanvas: React.FC = () => {
             return;
         }
 
-        // --- Kritik Çətinlik Hesablamaları (Critical Difficulty Calculations) ---
-        // Sürət: Hər səviyyədə 0.5 artır (Speed: +0.5 per level)
+        // --- Kritik Çətinlik Hesablamaları ---
+        // Sürət: Hər səviyyədə 0.5 artır
         const currentSpeed = BASE_SCROLL_SPEED + (state.difficulty - 1) * 0.5;
 
-        // Maneə Aralığı: Hər səviyyədə 120ms azalır (Interval: -120ms per level)
+        // Maneə Aralığı: Hər səviyyədə 120ms azalır
         // Min 900ms-ə qədər düşür
         const currentInterval = Math.max(BASE_OBSTACLE_INTERVAL - (state.difficulty - 1) * 120, 900);
 
-        // Boşluq Ölçüsü: Hər səviyyədə 10px azalır (Gap: -10px per level)
+        // Boşluq Ölçüsü: Hər səviyyədə 10px azalır
         // Min 130px-ə qədər düşür (çox dar)
         const GAP_SIZE = Math.max(250 - (state.difficulty - 1) * 10, 130);
 
-        // --- Generator (Generator Logic - Time Based, No Multiplier Needed) ---
+        // --- Generator (Zaman əsaslı) ---
         if (time - state.lastObstacleTime > currentInterval) {
-            state.lastObstacleTime = time; // RESTORED: Sonsuz yaranma xətasını düzəltdi
+            state.lastObstacleTime = time;
 
             const minHeight = 50;
             const availableHeight = canvas.height - GAP_SIZE;
-            // Təsadüfi hündürlük (Random height)
+            // Təsadüfi hündürlük
             const topHeight = Math.random() * (availableHeight - minHeight * 2) + minHeight;
             const bottomY = topHeight + GAP_SIZE;
             const bottomHeight = canvas.height - bottomY;
@@ -242,7 +242,7 @@ const GameCanvas: React.FC = () => {
                 }
             }
 
-            // Qoşa Maneələr (Dual Obstacles)
+            // Qoşa Maneələr
             state.obstacles.push({
                 x: canvas.width,
                 y: 0,
@@ -260,17 +260,31 @@ const GameCanvas: React.FC = () => {
                 trend: trend
             });
 
-            // --- Bonus Sistemi (Bonus System) ---
+            // --- Bonus Sistemi ---
             const isBelowLimit = state.dailyEarnings < 1000;
-            const isLucky = Math.random() < 0.30;
-            const isGuaranteed = state.obstaclesSinceLastCoin >= 3;
+            const isLucky = Math.random() < 0.15; // %15 Şans
+            const isGuaranteed = state.obstaclesSinceLastCoin >= 7; // 7 Maneədən bir zəmanət
 
             if (isBelowLimit && (isLucky || isGuaranteed)) {
                 // Coin yaratdığımız üçün sayğacı sıfırla
                 state.obstaclesSinceLastCoin = 0;
 
-                // Konum: Boşluğun mərkəzində, bir az sağa-sola sürüşə bilər 
-                // Dəyər Hesablanması (Level-based Value):
+                // Konum: Boşluğun mərkəzində DEYİL, riskli kənarlara yaxın (Risk = Mükafat)
+                // Coin Radius ~15px (Ölçü 30)
+                // Bufer: 15px (divara girməməsi üçün)
+                const coinSize = 30;
+                const buffer = 15;
+
+                const minY = topHeight + buffer;
+                const maxY = topHeight + GAP_SIZE - buffer - coinSize;
+
+                // Təhlükəsiz aralıqda təsadüfi Y (əgər boşluq çox dardırsa mərkəzlə)
+                let coinY = topHeight + (GAP_SIZE / 2) - (coinSize / 2);
+                if (maxY > minY) {
+                    coinY = Math.random() * (maxY - minY) + minY;
+                }
+
+                // Dəyər Hesablanması (Səviyyə əsaslı):
                 let bonusValue = 0;
 
                 if (state.difficulty === 1) {
@@ -287,7 +301,7 @@ const GameCanvas: React.FC = () => {
 
                 state.items.push({
                     x: canvas.width + 25, // Obstacle ortası
-                    y: topHeight + (GAP_SIZE / 2),
+                    y: coinY,
                     width: 30, // Logo size
                     height: 30,
                     collected: false,
@@ -308,10 +322,10 @@ const GameCanvas: React.FC = () => {
         state.obstacles = state.obstacles.filter(obs => obs.x + obs.width > -100);
         state.items = state.items.filter(item => item.x > -100 && !item.collected);
 
-        // --- Toqquşma və Xal (Collision & Scoring) ---
+        // --- Toqquşma və Xal ---
         const playerRect = { x: 100 - CANDLE_WIDTH / 2, y: state.y, w: CANDLE_WIDTH, h: CANDLE_HEIGHT };
 
-        // Maneələr (Obstacles)
+        // Maneələr
         state.obstacles.forEach(obs => {
             if (
                 playerRect.x < obs.x + obs.width &&
@@ -329,13 +343,13 @@ const GameCanvas: React.FC = () => {
                 return;
             }
 
-            // Xal hesablama (Scoring)
+            // Xal hesablama
             if (!obs.passed && playerRect.x > obs.x + obs.width && obs.y === 0) {
                 obs.passed = true;
                 state.obstaclesPassed += 1;
 
-                // Çətinlik yeniləməsi: Hər 10 maneə = 1 Səviyyə
-                const newDifficulty = Math.min(Math.floor(state.obstaclesPassed / 10) + 1, 15);
+                // Çətinlik yeniləməsi: Hər 20 maneə = 1 Səviyyə
+                const newDifficulty = Math.min(Math.floor(state.obstaclesPassed / 20) + 1, 15);
                 if (newDifficulty !== state.difficulty) {
                     state.difficulty = newDifficulty;
                     dispatch(setDifficulty(newDifficulty));
@@ -345,8 +359,8 @@ const GameCanvas: React.FC = () => {
                 dispatch(incrementScore(points));
                 state.score += points; // Local sync
 
-                // Hər 10 maneədən (100 xal) sonra səs effekti
-                if (state.obstaclesPassed % 10 === 0) {
+                // Hər 20 maneədən (200 xal) sonra səs effekti
+                if (state.obstaclesPassed % 20 === 0) {
                     WebApp.HapticFeedback.notificationOccurred('success');
                 } else {
                     WebApp.HapticFeedback.impactOccurred('light');
@@ -356,11 +370,11 @@ const GameCanvas: React.FC = () => {
 
         // Bonuslar (Items)
         state.items.forEach(item => {
-            const itemRadius = item.width / 2; // Sadə dairəvi toqquşma (Simple circular collision)
+            const itemRadius = item.width / 2; // Sadə dairəvi toqquşma
             const dx = (playerRect.x + playerRect.w / 2) - item.x;
             const dy = (playerRect.y + playerRect.h / 2) - item.y;
 
-            // Toqquşma məsafəsi (Collision distance)
+            // Toqquşma məsafəsi
             if (dx * dx + dy * dy < (itemRadius + 20) * (itemRadius + 20)) {
                 if (!item.collected) {
                     item.collected = true;
@@ -381,7 +395,7 @@ const GameCanvas: React.FC = () => {
         if (!ctx) return;
         const state = gameStateRef.current;
 
-        // Təmizləmə (Clear)
+        // Təmizləmə
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // --- Arxa Plan Grid ---
@@ -400,7 +414,7 @@ const GameCanvas: React.FC = () => {
         }
         ctx.stroke();
 
-        // --- Maneələr (Obstacles) ---
+        // --- Maneələr ---
         state.obstacles.forEach(obs => {
             let strokeColor = '#64748b'; // Neytral Slate
             let fillColor = 'rgba(148, 163, 184, 0.1)';
@@ -413,27 +427,42 @@ const GameCanvas: React.FC = () => {
                 fillColor = 'rgba(239, 68, 68, 0.2)';
             }
 
-            // Fon (Base Background)
+            // Fon
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-            // Rəngli Fon (Tinted Background)
+            // Rəngli Fon
             ctx.fillStyle = fillColor;
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-            // Çərçivə (Border)
+            // Çərçivə (Yalnız 3 tərəf)
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
-            ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+
+            ctx.beginPath();
+            if (obs.y === 0) {
+                // Üst Maneə: Sol, Alt, Sağ
+                ctx.moveTo(obs.x, obs.y); // Sol Üst (başlanğıc) - ancaq çəkmirik
+                ctx.moveTo(obs.x, obs.y);
+                ctx.lineTo(obs.x, obs.y + obs.height); // Sol
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height); // Alt
+                ctx.lineTo(obs.x + obs.width, obs.y); // Sağ
+            } else {
+                // Alt Maneə: Sol, Üst, Sağ
+                ctx.moveTo(obs.x, obs.y + obs.height); // Sol Alt (başlanğıc) - çəkmirik
+                ctx.moveTo(obs.x, obs.y + obs.height);
+                ctx.lineTo(obs.x, obs.y); // Sol
+                ctx.lineTo(obs.x + obs.width, obs.y); // Üst
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height); // Sağ
+            }
+            ctx.stroke();
         });
-
-
 
         // --- Bonuslar (Items) ---
         state.items.forEach(item => {
             if (item.collected) return;
 
-            // Logo şəkli (Logo Image)
+            // Logo şəkli
             if (bonusImageRef.current.complete) {
                 const imgSize = 40; // Biraz daha böyük görünüş
                 ctx.drawImage(bonusImageRef.current, item.x - imgSize / 2, item.y - imgSize / 2, imgSize, imgSize);
@@ -445,7 +474,7 @@ const GameCanvas: React.FC = () => {
                 ctx.fill();
             }
 
-            // Dəyəri göstər (Show Value)
+            // Dəyəri göstər
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 12px Ubuntu';
             ctx.textAlign = 'center';
@@ -464,33 +493,33 @@ const GameCanvas: React.FC = () => {
             ctx.globalAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 50);
         }
 
-        // Fitil Elastikliyi (Wick Elasticity)
+        // Fitil Elastikliyi
         const baseWick = 10;
         const stretch = Math.abs(state.velocity) * 4;
 
         let topWickLen = baseWick;
         let bottomWickLen = baseWick;
 
-        if (state.velocity < 0) { // Yuxarı hərəkət (Moving UP) -> Aşağı fitili uzat (Stretch Bottom)
+        if (state.velocity < 0) { // Yuxarı hərəkət -> Aşağı fitili uzat
             bottomWickLen += stretch;
-        } else if (state.velocity > 0) { // Aşağı hərəkət (Moving DOWN) -> Yuxarı fitili uzat (Stretch Top)
+        } else if (state.velocity > 0) { // Aşağı hərəkət -> Yuxarı fitili uzat
             topWickLen += stretch;
         }
 
-        // Fitil Çəkimi (Draw Wick)
+        // Fitil Çəkimi
         ctx.beginPath();
-        // Yuxarı fitil (Top wick)
+        // Yuxarı fitil
         ctx.moveTo(100, y);
         ctx.lineTo(100, y - topWickLen);
-        // Aşağı fitil (Bottom wick)
+        // Aşağı fitil
         ctx.moveTo(100, y + CANDLE_HEIGHT);
         ctx.lineTo(100, y + CANDLE_HEIGHT + bottomWickLen);
 
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1; // İncə fitil (Thin wick)
+        ctx.lineWidth = 1; // İncə fitil
         ctx.stroke();
 
-        // Bədən Çəkimi (Draw Body)
+        // Bədən Çəkimi
         ctx.fillStyle = color;
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
@@ -524,7 +553,7 @@ const GameCanvas: React.FC = () => {
         };
     }, [isPlaying, isGameOver]);
 
-    // İlkin Çəkim (Initial Draw)
+    // İlkin Çəkim
     useEffect(() => {
         draw();
     }, []);
