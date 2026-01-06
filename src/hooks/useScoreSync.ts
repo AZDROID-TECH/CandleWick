@@ -9,7 +9,7 @@ export const useScoreSync = () => {
     const userId = WebApp.initDataUnsafe.user?.id;
 
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !currentWeekId) return;
 
         const syncScore = async () => {
             try {

@@ -259,13 +259,15 @@ export const useAuth = () => {
                 // HƏTTA SƏHV OLSA BELƏ OYUNU AÇ (Fallback to Guest/Offline)
                 // Even on error, ensure game loads so user is not stuck
                 if (!currentUserData) {
+                    const fallbackDate = getUSDateString();
+                    const fallbackWeekId = getCurrentWeekId();
                     currentUserData = {
                         total_azc: 0,
                         daily_earnings: 0,
                         daily_high_score: 0,
                         weekly_high_score: 0,
-                        last_daily_reset: new Date().toISOString(),
-                        current_week_id: "",
+                        last_daily_reset: fallbackDate,
+                        current_week_id: fallbackWeekId,
                         friends: []
                     } as any;
                 }

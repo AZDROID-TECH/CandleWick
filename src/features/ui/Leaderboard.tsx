@@ -25,6 +25,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { friends } = useAppSelector(state => state.game);
     const [activeTab, setActiveTab] = useState<'weekly' | 'all_time' | 'friends'>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
+    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [timeLeft, setTimeLeft] = useState("");
 
@@ -46,6 +47,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
         const fetchLeaders = async () => {
             setLoading(true);
             setLeaders([]);
+            setError(null);
             try {
                 const usersRef = collection(db, 'users');
                 let q;
@@ -121,8 +123,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 if (!isCancelled) {
                     console.error("Error fetching leaderboard:", error);
                     if (error?.message?.includes('index')) {
-                        console.error("FIRESTORE INDEX MISSING. Click the link in console to create it.");
-                        // İstəyə bağlı: Burada UI mesajı göstərilə bilər
+                        const msg = "FIRESTORE INDEX MISSING. Open browser console for the link.";
+                        console.error(msg);
+                        setError(msg);
+                    } else {
+                        setError(error.message || "Unknown error occurred");
                     }
                 }
             } finally {
@@ -205,6 +210,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     <div className="text-center text-slate-500 mt-10 animate-pulse">
                         {t('loading_data')}
                     </div>
+                ) : error ? (
+                    <div className="flex flex-col items-center justify-center mt-10 text-red-400 gap-2 px-6 text-center">
+                        <i className='bx bx-error-circle text-4xl'></i>
+                        <p className="font-bold">Error Loading Leaderboard</p>
+                        <p className="text-xs font-mono bg-slate-900/50 p-2 rounded border border-red-500/30 break-all">
+                            {error}
+                        </p>
+                    </div>
+                ) : leaders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center mt-10 text-slate-500 gap-2">
+                        <i className='bx bx-ghost text-4xl opacity-50'></i>
+                        <p>{activeTab === 'friends' ? "No friends yet" : "No records found"}</p>
+                    </div>
                 ) : (
                     leaders.map((user, index) => (
                         <div
@@ -251,7 +269,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     {t('home')}
                 </button>
             </div>
-        </div>
+        </div >
     );
 };
 
