@@ -19,20 +19,17 @@ export const useAuth = () => {
 
 
             try {
-                console.log("1. Starting Firebase Anonymous Auth...");
                 const userCredential = await signInAnonymously(auth);
                 setUser(userCredential.user);
-                console.log("2. Firebase Auth Success:", userCredential.user.uid);
 
                 // 2. Telegram ID istifadə edərək Firestore ilə sinxronizasiya
                 // 2. Sync with Firestore using Telegram ID
                 const telegramUser = WebApp.initDataUnsafe.user;
 
                 if (telegramUser) {
-                    console.log("3. Telegram User detected:", telegramUser.id);
                     const userRef = doc(db, 'users', telegramUser.id.toString());
-                    console.log("4. Fetching user document from Firestore...");
                     const userSnap = await getDoc(userRef);
+
 
                     if (userSnap.exists()) {
                         // Məlumatları yüklə (Mövcud İstifadəçi)
@@ -138,11 +135,9 @@ export const useAuth = () => {
                         }
 
                         try {
-                            console.log("Attempting updateDoc for existing user...");
                             await updateDoc(userRef, updateData);
-                            console.log("6. Firestore Update SUCCESS!");
                         } catch (updateError: any) {
-                            console.error("FIRESTORE UPDATE ERROR:", updateError.code, updateError.message);
+                            console.error("Firestore update error");
                             throw updateError;
                         }
 
@@ -207,15 +202,12 @@ export const useAuth = () => {
                             last_login: nowISO
                         };
 
-                        console.log("5b. New user data prepared:", JSON.stringify(newUser));
                         try {
-                            console.log("Attempting setDoc...");
                             await setDoc(userRef, newUser);
-                            console.log("6. Firestore Write SUCCESS for new user!");
                             currentUserData = newUser;
                         } catch (firestoreError: any) {
-                            console.error("FIRESTORE WRITE ERROR:", firestoreError.code, firestoreError.message);
-                            throw firestoreError; // Yuxarıdakı catch blokuna ötür
+                            console.error("Firestore write error");
+                            throw firestoreError;
                         }
 
                         // Referral Update Logic

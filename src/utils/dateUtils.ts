@@ -46,7 +46,8 @@ export const getCurrentWeekId = (): string => {
     const yearStart = new Date(d.getFullYear(), 0, 1);
     const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 
-    return `${d.getFullYear()}-W${weekNo}`;
+    // Həftə nömrəsini 2 rəqəmli formata çevir (W6 -> W06)
+    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 };
 
 export const getUSDateString = (): string => {
