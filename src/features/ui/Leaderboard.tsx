@@ -54,14 +54,32 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
 
                 if (activeTab === 'weekly') {
                     // Həftəlik Yüksek Xal
+                    // Composite index tələb etməmək üçün client-side filtrasiya istifadə edirik
                     const currentWeekId = getCurrentWeekId();
 
+                    // Sadəcə weekly_high_score ilə sırala (tək sahə = index lazım deyil) Dep
                     q = query(
                         usersRef,
-                        where('current_week_id', '==', currentWeekId),
                         orderBy('weekly_high_score', 'desc'),
-                        limit(100)
+                        limit(200) // Daha çox götür, sonra client-side filtr tətbiq et
                     );
+
+                    const snapshot = await getDocs(q);
+
+                    if (!isCancelled) {
+                        const fetchedUsers: FirestoreUser[] = [];
+                        snapshot.forEach(doc => {
+                            const userData = doc.data() as FirestoreUser;
+                            // Yalnız cari həftə ID-si uyğun olanları əlavə et
+                            if (userData.current_week_id === currentWeekId) {
+                                fetchedUsers.push(userData);
+                            }
+                        });
+                        // İlk 100-ü götür
+                        setLeaders(fetchedUsers.slice(0, 100));
+                    }
+                    setLoading(false);
+                    return; // Erkən qayıdış
                 } else if (activeTab === 'friends') {
                     // Dostlar (Friends)
                     // Dost siyahısını Redux-dan alaq, amma burada birbaşa çətinlik var, çünki Leaderboard componentinə props kimi gəlmir
