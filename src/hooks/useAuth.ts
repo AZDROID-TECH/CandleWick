@@ -143,10 +143,12 @@ export const useAuth = () => {
 
                         currentUserData = {
                             ...data,
+                            ...updateData,
                             daily_earnings: finalDailyEarnings,
                             daily_high_score: finalDailyHighScore,
                             weekly_high_score: finalWeeklyHighScore,
                             last_daily_reset: finalLastReset,
+                            current_week_id: updateData.current_week_id || data.current_week_id,
                             friends: updateData.friends || data.friends || []
                         };
 
