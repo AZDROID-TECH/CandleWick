@@ -53,7 +53,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 let q;
 
                 if (activeTab === 'weekly') {
-                    // Həftəlik Yüksek Xal (Composite Index tələb edir)
+                    // Həftəlik Yüksek XalFix
+                    // İndi birbaşa Firestore-da filtr edirik ki, köhnə həftələrin datası gəlməsin
+                    // Bu sorğu üçün Firestore Composite Index lazımdır:
+                    // Collection: users
+                    // Fields: current_week_id (ASC/DESC), weekly_high_score (DESC)
+
                     const currentWeekId = getCurrentWeekId();
 
                     q = query(
@@ -62,6 +67,18 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         orderBy('weekly_high_score', 'desc'),
                         limit(100)
                     );
+
+                    const snapshot = await getDocs(q);
+
+                    if (!isCancelled) {
+                        const fetchedUsers: FirestoreUser[] = [];
+                        snapshot.forEach(doc => {
+                            fetchedUsers.push(doc.data() as FirestoreUser);
+                        });
+                        setLeaders(fetchedUsers);
+                    }
+                    setLoading(false);
+                    return; // Erkən qayıdış
                 } else if (activeTab === 'friends') {
                     // Dostlar (Friends)
                     // Dost siyahısını Redux-dan alaq, amma burada birbaşa çətinlik var, çünki Leaderboard componentinə props kimi gəlmir
