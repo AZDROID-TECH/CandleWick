@@ -86,12 +86,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     // Ən təmizi: useEffect xaricində selectoru çağırmaq.
                     // (Aşağıda düzəliş ediləcək)
 
-                    // Müvəqqəti olaraq qeyd: Logic aşağıda tam düzəldilir
-                    const currentWeekId = getCurrentWeekId();
-
                     // Dost ID-ləri (useAppSelector ilə gələcək)
-                    // Burada placeholder logic:
-                    // if (friends.length === 0) setLeaders([]); return;
+                    if (friends.length === 0) {
+                        setLeaders([]);
+                        setLoading(false);
+                        return;
+                    }
 
                     // BATCH Fetching (Firestore IN limit: 30)
                     const friendBatches = [];
@@ -113,11 +113,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         });
                     }
 
-                    // Client-side Sorting (Weekly by default)
+                    // Client-side Sorting (All Time by default for Friends)
                     allFriendsDocs.sort((a, b) => {
-                        const scoreA = (a.current_week_id === currentWeekId) ? (a.weekly_high_score || 0) : 0;
-                        const scoreB = (b.current_week_id === currentWeekId) ? (b.weekly_high_score || 0) : 0;
-                        return scoreB - scoreA;
+                        return (b.high_score || 0) - (a.high_score || 0);
                     });
                     setLeaders(allFriendsDocs);
                     setLoading(false);
