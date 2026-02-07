@@ -117,5 +117,5 @@ dist
 .vercel
 .env*.local
 
-CODE_STANDARDS.md
 TECHNICAL_DOCUMENTATION.md
+CODE_STANDARTS.md

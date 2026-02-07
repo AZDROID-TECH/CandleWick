@@ -8,9 +8,9 @@
 ### ✅ Çok Dilli (Multilanguage) Yapı
 - **Varsayılan: İngilizce (en), İkinci: Azerbaycanca (az)**
 - `react-i18next` zorunludur. Telegram kullanıcısının diline (`WebApp.initDataUnsafe.user.language_code`) göre otomatik dil seçimi yapılmalıdır.
-
+ 
 ---
-
+ 
 ## 🛠️ Kullanılan Teknolojiler (Zorunlu)
 
 | Kategori | Teknoloji / Kütüphane | Açıklama |
