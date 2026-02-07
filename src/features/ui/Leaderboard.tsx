@@ -55,6 +55,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 if (activeTab === 'weekly') {
                     // Həftəlik Yüksek Xal (Composite Index tələb edir)
                     const currentWeekId = getCurrentWeekId();
+                    console.log("🔍 DEBUG - Current Week ID:", currentWeekId);
 
                     q = query(
                         usersRef,
@@ -62,6 +63,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         orderBy('weekly_high_score', 'desc'),
                         limit(100)
                     );
+
+                    // Debug: Sorgu sonucunu logla
+                    const debugSnapshot = await getDocs(q);
+                    console.log("🔍 DEBUG - Weekly query result count:", debugSnapshot.size);
+                    debugSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        console.log("🔍 DEBUG - User:", data.first_name, "| week_id:", data.current_week_id, "| weekly_score:", data.weekly_high_score);
+                    });
                 } else if (activeTab === 'friends') {
                     // Dostlar (Friends)
                     // Dost siyahısını Redux-dan alaq, amma burada birbaşa çətinlik var, çünki Leaderboard componentinə props kimi gəlmir
