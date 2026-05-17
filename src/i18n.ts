@@ -50,8 +50,10 @@ const resources = {
             "default_trader": "Trader",
             "leaderboard_error_title": "Error Loading Leaderboard",
             "leaderboard_index_missing": "Leaderboard index is missing. Configure Firestore composite indexes.",
+            "leaderboard_timeout": "Request timed out. Please try again.",
             "no_records_found": "No records found",
-            "no_friends_yet": "No friends yet"
+            "no_friends_yet": "No friends yet",
+            "retry": "Retry"
         }
     },
     az: {
@@ -102,8 +104,10 @@ const resources = {
             "default_trader": "Treyder",
             "leaderboard_error_title": "Lider lövhəsi yüklənmədi",
             "leaderboard_index_missing": "Lider lövhəsi üçün Firestore indeksləri qurulmayıb.",
+            "leaderboard_timeout": "Sorğu vaxt limiti doldu. Yenidən yoxlayın.",
             "no_records_found": "Qeyd tapılmadı",
-            "no_friends_yet": "Hələ dost yoxdur"
+            "no_friends_yet": "Hələ dost yoxdur",
+            "retry": "Yenidən yoxla"
         }
     }
 };

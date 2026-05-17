@@ -12,6 +12,9 @@ interface LeaderboardProps {
 }
 
 type LeaderboardTab = 'weekly' | 'all_time' | 'friends';
+type LeaderboardCache = Record<LeaderboardTab, FirestoreUser[] | null>;
+
+const QUERY_TIMEOUT_MS = 12000;
 
 const getFlagEmoji = (countryCode?: string) => {
     if (!countryCode) return '🏳️';
@@ -34,14 +37,38 @@ const toErrorMessage = (error: unknown): string => {
     return 'UNKNOWN_ERROR';
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+    let timeoutId: number | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+            reject(new Error('QUERY_TIMEOUT'));
+        }, ms);
+    });
+
+    try {
+        return await Promise.race([promise, timeoutPromise]);
+    } finally {
+        if (timeoutId) {
+            window.clearTimeout(timeoutId);
+        }
+    }
+};
+
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { t } = useTranslation();
     const { friends } = useAppSelector(state => state.game);
     const [activeTab, setActiveTab] = useState<LeaderboardTab>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
+    const [cache, setCache] = useState<LeaderboardCache>({
+        weekly: null,
+        all_time: null,
+        friends: null
+    });
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [timeLeft, setTimeLeft] = useState('');
+    const [refreshTick, setRefreshTick] = useState(0);
 
     useEffect(() => {
         if (activeTab !== 'weekly') {
@@ -60,59 +87,79 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     useEffect(() => {
         let cancelled = false;
 
-        const fetchLeaders = async () => {
-            setLoading(true);
-            setLeaders([]);
+        const fetchTabData = async (tab: LeaderboardTab): Promise<FirestoreUser[]> => {
+            const usersRef = collection(db, 'users');
+
+            if (tab === 'weekly') {
+                const weekId = getCurrentWeekId();
+                const weeklyQuery = query(
+                    usersRef,
+                    where('current_week_id', '==', weekId),
+                    orderBy('weekly_high_score', 'desc'),
+                    limit(100)
+                );
+                const snapshot = await withTimeout(getDocs(weeklyQuery), QUERY_TIMEOUT_MS);
+                return snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
+            }
+
+            if (tab === 'friends') {
+                if (friends.length === 0) {
+                    return [];
+                }
+
+                const chunks: number[][] = [];
+                for (let i = 0; i < friends.length; i += 10) {
+                    chunks.push(friends.slice(i, i + 10));
+                }
+
+                const friendRows: FirestoreUser[] = [];
+                for (const chunk of chunks) {
+                    if (chunk.length === 0) {
+                        continue;
+                    }
+
+                    const friendQuery = query(usersRef, where('user_id', 'in', chunk));
+                    const snapshot = await withTimeout(getDocs(friendQuery), QUERY_TIMEOUT_MS);
+                    friendRows.push(...snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser));
+                }
+
+                friendRows.sort((a, b) => (b.high_score || 0) - (a.high_score || 0));
+                return friendRows;
+            }
+
+            const allTimeQuery = query(usersRef, orderBy('high_score', 'desc'), limit(100));
+            const snapshot = await withTimeout(getDocs(allTimeQuery), QUERY_TIMEOUT_MS);
+            return snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
+        };
+
+        const run = async () => {
+            const cachedRows = cache[activeTab];
+            if (cachedRows) {
+                setLeaders(cachedRows);
+                setLoading(false);
+            } else {
+                setLoading(true);
+                setLeaders([]);
+            }
             setError(null);
 
             try {
-                const usersRef = collection(db, 'users');
-                let fetchedUsers: FirestoreUser[] = [];
-
-                if (activeTab === 'weekly') {
-                    const weekId = getCurrentWeekId();
-                    const weeklyQuery = query(
-                        usersRef,
-                        where('current_week_id', '==', weekId),
-                        orderBy('weekly_high_score', 'desc'),
-                        limit(100)
-                    );
-                    const snapshot = await getDocs(weeklyQuery);
-                    fetchedUsers = snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
-                } else if (activeTab === 'friends') {
-                    if (friends.length === 0) {
-                        fetchedUsers = [];
-                    } else {
-                        const chunks: number[][] = [];
-                        for (let i = 0; i < friends.length; i += 10) {
-                            chunks.push(friends.slice(i, i + 10));
-                        }
-
-                        for (const chunk of chunks) {
-                            if (chunk.length === 0) {
-                                continue;
-                            }
-                            const friendQuery = query(usersRef, where('user_id', 'in', chunk));
-                            const snapshot = await getDocs(friendQuery);
-                            fetchedUsers.push(...snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser));
-                        }
-
-                        fetchedUsers.sort((a, b) => (b.high_score || 0) - (a.high_score || 0));
-                    }
-                } else {
-                    const allTimeQuery = query(usersRef, orderBy('high_score', 'desc'), limit(100));
-                    const snapshot = await getDocs(allTimeQuery);
-                    fetchedUsers = snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
+                const rows = await fetchTabData(activeTab);
+                if (cancelled) {
+                    return;
                 }
 
-                if (!cancelled) {
-                    setLeaders(fetchedUsers);
-                }
+                setLeaders(rows);
+                setCache(prev => ({
+                    ...prev,
+                    [activeTab]: rows
+                }));
             } catch (fetchError: unknown) {
-                if (!cancelled) {
-                    console.error('Leaderboard yükləmə xətası:', fetchError);
-                    setError(toErrorMessage(fetchError));
+                if (cancelled) {
+                    return;
                 }
+                console.error('Leaderboard yükləmə xətası:', fetchError);
+                setError(toErrorMessage(fetchError));
             } finally {
                 if (!cancelled) {
                     setLoading(false);
@@ -120,11 +167,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
             }
         };
 
-        void fetchLeaders();
+        void run();
         return () => {
             cancelled = true;
         };
-    }, [activeTab, friends]);
+    }, [activeTab, friends, refreshTick]);
 
     return (
         <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center p-4 overflow-hidden">
@@ -190,8 +237,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         <i className='bx bx-error-circle text-4xl'></i>
                         <p className="font-bold">{t('leaderboard_error_title')}</p>
                         <p className="text-xs font-mono bg-slate-900/50 p-2 rounded border border-red-500/30 break-all">
-                            {error === 'FIRESTORE_INDEX_MISSING' ? t('leaderboard_index_missing') : error}
+                            {error === 'FIRESTORE_INDEX_MISSING'
+                                ? t('leaderboard_index_missing')
+                                : error === 'QUERY_TIMEOUT'
+                                    ? t('leaderboard_timeout')
+                                    : error}
                         </p>
+                        <button
+                            onClick={() => {
+                                WebApp.HapticFeedback.impactOccurred('light');
+                                setRefreshTick(value => value + 1);
+                            }}
+                            className="mt-2 px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 text-xs font-bold"
+                        >
+                            {t('retry')}
+                        </button>
                     </div>
                 ) : leaders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center mt-10 text-slate-500 gap-2">
