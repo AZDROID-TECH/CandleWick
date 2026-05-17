@@ -5,29 +5,72 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { claimDoubleReward, continueGame, resetGame, startGame } from '../game/gameSlice';
 
 const ADSGRAM_SCRIPT_ID = 'adsgram-sdk-script';
+const ADSGRAM_SCRIPT_URLS = [
+    'https://adsgram.ai/js/adsgram.js?v=1',
+    'https://sad.adsgram.ai/js/sad.min.js'
+];
+const ADSGRAM_LOAD_TIMEOUT_MS = 6000;
+const ADSGRAM_MAX_RETRIES = 2;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+    let timeoutId: number | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+            reject(new Error('Adsgram SDK timeout'));
+        }, timeoutMs);
+    });
+
+    try {
+        return await Promise.race([promise, timeoutPromise]);
+    } finally {
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+        }
+    }
+};
+
+const loadAdsgramScriptFromUrl = async (url: string) => {
+    const scriptId = `${ADSGRAM_SCRIPT_ID}-${btoa(url).replace(/=/g, '')}`;
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existing && window.Adsgram) {
+        return;
+    }
+
+    await withTimeout(new Promise<void>((resolve, reject) => {
+        const script = existing || document.createElement('script');
+        if (!existing) {
+            script.id = scriptId;
+            script.src = url;
+            script.async = true;
+            document.body.appendChild(script);
+        }
+
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Adsgram SDK yüklənmədi (${url})`));
+    }), ADSGRAM_LOAD_TIMEOUT_MS);
+};
 
 const loadAdsgramScript = async () => {
     if (window.Adsgram) {
         return;
     }
 
-    const existing = document.getElementById(ADSGRAM_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing && window.Adsgram) {
-        return;
+    let lastError: unknown = null;
+    for (let retry = 0; retry < ADSGRAM_MAX_RETRIES; retry += 1) {
+        for (const url of ADSGRAM_SCRIPT_URLS) {
+            try {
+                await loadAdsgramScriptFromUrl(url);
+                if (window.Adsgram) {
+                    return;
+                }
+            } catch (error: unknown) {
+                lastError = error;
+            }
+        }
     }
 
-    await new Promise<void>((resolve, reject) => {
-        const script = existing || document.createElement('script');
-        if (!existing) {
-            script.id = ADSGRAM_SCRIPT_ID;
-            script.src = 'https://adsgram.ai/js/adsgram.js?v=1';
-            script.async = true;
-            document.body.appendChild(script);
-        }
-
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Adsgram SDK yüklənmədi'));
-    });
+    throw lastError || new Error('Adsgram SDK yüklənmədi');
 };
 
 const GameOverModal: React.FC = () => {
@@ -35,8 +78,27 @@ const GameOverModal: React.FC = () => {
     const dispatch = useAppDispatch();
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
-    const showAdsgramAd = async (blockId: string | undefined, onReward: () => void) => {
+    const showMonetagAd = async (onReward: () => void) => {
+        const showAd = window.show_10324597;
+        if (typeof showAd !== 'function') {
+            WebApp.showAlert(t('ad_load_error'));
+            return false;
+        }
+
         try {
+            WebApp.HapticFeedback.impactOccurred('light');
+            await showAd();
+            onReward();
+            return true;
+        } catch (error: unknown) {
+            console.error('Monetag xətası:', error);
+            return false;
+        }
+    };
+
+    const showAdsgramAd = async (blockIdRaw: string | undefined, onReward: () => void) => {
+        try {
+            const blockId = typeof blockIdRaw === 'string' ? blockIdRaw.trim() : '';
             await loadAdsgramScript();
             if (!window.Adsgram) {
                 throw new Error('Adsgram obyekt tapılmadı');
@@ -44,7 +106,7 @@ const GameOverModal: React.FC = () => {
 
             if (!blockId) {
                 WebApp.showAlert(t('ad_config_missing'));
-                return;
+                return false;
             }
 
             const adController = window.Adsgram.init({
@@ -59,30 +121,20 @@ const GameOverModal: React.FC = () => {
             if (watchedMs < 15000) {
                 WebApp.HapticFeedback.notificationOccurred('error');
                 WebApp.showAlert(t('ad_warning_short'));
-                return;
+                return false;
             }
 
             onReward();
+            return true;
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : t('ad_load_error');
             console.error('Adsgram xətası:', error);
-            WebApp.showAlert(`${t('ad_load_error')}: ${message}`);
-        }
-    };
-
-    const showMonetagAd = async (onReward: () => void) => {
-        const showAd = window.show_10324597;
-        if (typeof showAd !== 'function') {
-            WebApp.showAlert(t('ad_load_error'));
-            return;
-        }
-
-        try {
-            WebApp.HapticFeedback.impactOccurred('light');
-            await showAd();
-            onReward();
-        } catch (error: unknown) {
-            console.error('Monetag xətası:', error);
+            console.warn('Adsgram uğursuz oldu, Monetag fallback işə salınır.');
+            const monetagOk = await showMonetagAd(onReward);
+            if (!monetagOk) {
+                WebApp.showAlert(`${t('ad_load_error')}: ${message}`);
+            }
+            return monetagOk;
         }
     };
 
