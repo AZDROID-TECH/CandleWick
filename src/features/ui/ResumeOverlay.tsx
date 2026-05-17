@@ -10,7 +10,7 @@ const ResumeOverlay: React.FC = () => {
     const { t } = useTranslation();
 
     const handleResume = () => {
-        WebApp.HapticFeedback.notificationOccurred('success');
+        WebApp.HapticFeedback.impactOccurred('light');
         dispatch(resumeGame());
     };
 

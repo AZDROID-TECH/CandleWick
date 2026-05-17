@@ -1,7 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Translation resources
 const resources = {
     en: {
         translation: {
@@ -47,7 +46,12 @@ const resources = {
             "go_button": "GO!",
             "loading_data": "Loading Data...",
             "daily_stats": "Daily: {{current}}/{{max}}",
-            "anonymous": "Anonymous"
+            "anonymous": "Anonymous",
+            "default_trader": "Trader",
+            "leaderboard_error_title": "Error Loading Leaderboard",
+            "leaderboard_index_missing": "Leaderboard index is missing. Configure Firestore composite indexes.",
+            "no_records_found": "No records found",
+            "no_friends_yet": "No friends yet"
         }
     },
     az: {
@@ -94,7 +98,12 @@ const resources = {
             "go_button": "BAŞLA!",
             "loading_data": "Məlumat yüklənir...",
             "daily_stats": "Günlük: {{current}}/{{max}}",
-            "anonymous": "Anonim"
+            "anonymous": "Anonim",
+            "default_trader": "Treyder",
+            "leaderboard_error_title": "Lider lövhəsi yüklənmədi",
+            "leaderboard_index_missing": "Lider lövhəsi üçün Firestore indeksləri qurulmayıb.",
+            "no_records_found": "Qeyd tapılmadı",
+            "no_friends_yet": "Hələ dost yoxdur"
         }
     }
 };
@@ -103,7 +112,7 @@ i18n
     .use(initReactI18next)
     .init({
         resources,
-        lng: "en", // Default language
+        lng: "en",
         fallbackLng: "en",
         interpolation: {
             escapeValue: false

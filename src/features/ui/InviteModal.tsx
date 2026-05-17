@@ -21,7 +21,6 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
                 }
                 throw new Error('Clipboard API unavailable');
             } catch (err) {
-                // Fallback
                 try {
                     const textArea = document.createElement("textarea");
                     textArea.value = text;
@@ -51,9 +50,8 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
 
     const handleShare = (platform: 'telegram' | 'whatsapp' | 'system') => {
         WebApp.HapticFeedback.impactOccurred('light');
-        const message = t('invite_desc'); // "play with me" text
+        const message = t('invite_desc');
 
-        // Encode URL components
         const encodedUrl = encodeURIComponent(inviteLink);
         const encodedText = encodeURIComponent(message);
 
@@ -61,7 +59,6 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
             const url = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
             WebApp.openTelegramLink(url);
         } else if (platform === 'whatsapp') {
-            // WhatsApp Web/App Link
             const url = `https://wa.me/?text=${encodedText}%20${encodedUrl}`;
             WebApp.openLink(url);
         } else if (platform === 'system') {
@@ -72,7 +69,6 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
                     url: inviteLink,
                 }).catch(console.error);
             } else {
-                // Fallback to copy
                 handleCopy();
             }
         }
@@ -101,7 +97,6 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
                     {t('invite_desc')}
                 </p>
 
-                {/* Input Field with Copy Button */}
                 <div className="flex gap-2 mb-6">
                     <div className="flex-1 bg-slate-900 rounded-xl border border-slate-700 p-3 flex items-center overflow-hidden">
                         <span className="text-slate-300 text-sm font-mono truncate w-full opacity-70 select-all">
@@ -126,7 +121,6 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
                     </div>
                 )}
 
-                {/* Social Share Buttons */}
                 <div className="grid grid-cols-3 gap-3">
                     <button
                         onClick={() => handleShare('telegram')}

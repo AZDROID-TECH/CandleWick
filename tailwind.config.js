@@ -8,15 +8,14 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Ubuntu', 'sans-serif'],
-            },
-            colors: {
-                // Custom neon colors if needed, but Tailwind defaults are usually fine
-                wick: {
-                    green: '#22c55e', // Bullish
-                    red: '#ef4444',   // Bearish
-                }
-            }
         },
+        colors: {
+            wick: {
+                green: '#22c55e',
+                red: '#ef4444',
+            }
+        }
+    },
     },
     plugins: [],
 }

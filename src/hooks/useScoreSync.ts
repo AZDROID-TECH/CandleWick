@@ -1,60 +1,52 @@
-import { useEffect } from 'react';
-import { useAppSelector } from '../app/hooks';
+import { useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import db from '../firebase/db';
-import WebApp from '@twa-dev/sdk';
+import { useAppSelector } from '../app/hooks';
 import { getCurrentWeekId } from '../utils/dateUtils';
+import { getTelegramUser } from '../utils/telegram';
+import { FirestoreUser } from '../types/firestore';
+
+type ScoreSyncPayload = Pick<
+    FirestoreUser,
+    'high_score' | 'total_azc' | 'daily_earnings' | 'daily_high_score' | 'weekly_high_score' | 'last_daily_reset' | 'current_week_id'
+>;
 
 export const useScoreSync = () => {
-    const { highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset, currentWeekId } = useAppSelector(state => state.game);
-    const userId = WebApp.initDataUnsafe.user?.id;
+    const { highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset } = useAppSelector(state => state.game);
+    const timeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
-        // Redux state-də currentWeekId köhnə ola bilər (əgər həftə dəyişibsə və app reload olmayıbsa)
-        // Ona görə də real vaxtı yoxlayırıq.
-        const realTimeWeekId = getCurrentWeekId();
+        const telegramUser = getTelegramUser();
+        if (!telegramUser || highScore <= 0) {
+            return;
+        }
 
-        // İlk yükləmədə state boş ola bilər, ona görə həm state, həm də user ID yoxlanılır.
-        // Amma realTimeWeekId həmişə doludur.
-        if (!userId) return;
+        if (timeoutRef.current) {
+            window.clearTimeout(timeoutRef.current);
+        }
 
-        const syncScore = async () => {
-            try {
-                const userRef = doc(db, 'users', userId.toString());
+        timeoutRef.current = window.setTimeout(() => {
+            const payload: ScoreSyncPayload = {
+                high_score: highScore,
+                total_azc: coins,
+                daily_earnings: dailyEarnings,
+                daily_high_score: dailyHighScore,
+                weekly_high_score: weeklyHighScore,
+                last_daily_reset: lastDailyReset,
+                current_week_id: getCurrentWeekId()
+            };
 
-                // Firestore-a yazılacaq data obyekti
-                const updateData: any = {
-                    high_score: highScore,
-                    total_azc: coins,
-                    daily_earnings: dailyEarnings,
-                    daily_high_score: dailyHighScore,
-                    last_daily_reset: lastDailyReset,
-                    current_week_id: realTimeWeekId // Həmişə ən yeni həftə ID-si
-                };
+            updateDoc(doc(db, 'users', telegramUser.id.toString()), payload).catch((error: unknown) => {
+                console.error('Skor sinxron xətası:', error);
+            });
+        }, 500);
 
-                // Əgər sessiya zamanı həftə dəyişibsə (Rollover), 
-                // köhnə həftənin xalını yeni həftəyə yazmamaq üçün yoxlamaq lazımdır.
-                // Lakin sadəlik üçün: istifadəçi oynayırsa, xalı qeydə alırıq.
-                // Burada `weekly_high_score` dəyərini yazırıq.
-                // Əgər realTimeWeekId !== currentWeekId (State), deməli yeni həftədir.
-                // Bu halda Redux-dakı `weeklyHighScore` əslində köhnə həftəyə aiddir.
-                // Amma istifadəçi indicə oynayıb (bu hook işə düşüb), deməli aktivdir.
-                // Fix: Əgər həftə fərqlidirsə, biz bu xalı "yeni həftənin ilk xalı" kimi qəbul edirik?
-                // YOX, əgər həftə dəyişibsə, Redux-dakı weeklyHighScore-u 0-lamalıydıq.
-                // Bunu etmədiyimiz üçün, bura köhnə high score gələ bilər.
-                // Hələlik sadəcə ID-ni yeniləyirik ki, istifadəçi siyahıda (bəlkə siyahı boş) görünsün.
-
-                // Müzakirə nəticəsi: İstifadəçinin siyahıda görünməməsi daha böyük problemdir.
-                updateData.weekly_high_score = weeklyHighScore;
-
-                await updateDoc(userRef, updateData);
-            } catch (error) {
-                console.error("Score sync failed", error);
+        return () => {
+            if (timeoutRef.current) {
+                window.clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
             }
         };
-
-        if (highScore > 0) {
-            syncScore();
-        }
-    }, [highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset, currentWeekId, userId]);
+    }, [highScore, coins, dailyEarnings, dailyHighScore, weeklyHighScore, lastDailyReset]);
 };
+

@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getCurrentWeekId, getTimeUntilWeeklyReset, formatTimeRemaining } from '../../utils/dateUtils';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import WebApp from '@twa-dev/sdk';
 import db from '../../firebase/db';
 import { FirestoreUser } from '../../types/firestore';
-import WebApp from '@twa-dev/sdk';
 import { useAppSelector } from '../../app/hooks';
+import { formatTimeRemaining, getCurrentWeekId, getTimeUntilWeeklyReset } from '../../utils/dateUtils';
 
 interface LeaderboardProps {
     onClose: () => void;
 }
 
+type LeaderboardTab = 'weekly' | 'all_time' | 'friends';
+
 const getFlagEmoji = (countryCode?: string) => {
-    if (!countryCode) return '🏳️'; // Naməlum/Dünya bayrağı
+    if (!countryCode) return '🏳️';
     const codePoints = countryCode
         .toUpperCase()
         .split('')
@@ -20,146 +22,112 @@ const getFlagEmoji = (countryCode?: string) => {
     return String.fromCodePoint(...codePoints);
 };
 
+const toErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.includes('index')) {
+        return 'FIRESTORE_INDEX_MISSING';
+    }
+
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+
+    return 'UNKNOWN_ERROR';
+};
+
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     const { t } = useTranslation();
     const { friends } = useAppSelector(state => state.game);
-    const [activeTab, setActiveTab] = useState<'weekly' | 'all_time' | 'friends'>('weekly');
+    const [activeTab, setActiveTab] = useState<LeaderboardTab>('weekly');
     const [leaders, setLeaders] = useState<FirestoreUser[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [timeLeft, setTimeLeft] = useState("");
+    const [timeLeft, setTimeLeft] = useState('');
 
     useEffect(() => {
-        if (activeTab === 'weekly') {
-            const updateTimer = () => {
-                const ms = getTimeUntilWeeklyReset();
-                setTimeLeft(formatTimeRemaining(ms));
-            };
-            updateTimer(); // İlkin çağırış
-            const interval = setInterval(updateTimer, 60000); // 1 dəqiqəlik yeniləmə kafi
-            return () => clearInterval(interval);
+        if (activeTab !== 'weekly') {
+            return;
         }
+
+        const updateTimer = () => {
+            setTimeLeft(formatTimeRemaining(getTimeUntilWeeklyReset()));
+        };
+
+        updateTimer();
+        const timer = window.setInterval(updateTimer, 60000);
+        return () => window.clearInterval(timer);
     }, [activeTab]);
 
     useEffect(() => {
-        let isCancelled = false;
+        let cancelled = false;
 
         const fetchLeaders = async () => {
             setLoading(true);
             setLeaders([]);
             setError(null);
+
             try {
                 const usersRef = collection(db, 'users');
-                let q;
+                let fetchedUsers: FirestoreUser[] = [];
 
                 if (activeTab === 'weekly') {
-                    // Həftəlik Yüksek XalFix
-                    // İndi birbaşa Firestore-da filtr edirik ki, köhnə həftələrin datası gəlməsin
-                    // Bu sorğu üçün Firestore Composite Index lazımdır:
-                    // Collection: users
-                    // Fields: current_week_id (ASC/DESC), weekly_high_score (DESC)
-
-                    const currentWeekId = getCurrentWeekId();
-
-                    q = query(
+                    const weekId = getCurrentWeekId();
+                    const weeklyQuery = query(
                         usersRef,
-                        where('current_week_id', '==', currentWeekId),
+                        where('current_week_id', '==', weekId),
                         orderBy('weekly_high_score', 'desc'),
                         limit(100)
                     );
-
-                    const snapshot = await getDocs(q);
-
-                    if (!isCancelled) {
-                        const fetchedUsers: FirestoreUser[] = [];
-                        snapshot.forEach(doc => {
-                            fetchedUsers.push(doc.data() as FirestoreUser);
-                        });
-                        setLeaders(fetchedUsers);
-                    }
-                    setLoading(false);
-                    return; // Erkən qayıdış
+                    const snapshot = await getDocs(weeklyQuery);
+                    fetchedUsers = snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
                 } else if (activeTab === 'friends') {
-                    // Dostlar (Friends)
-                    // Dost siyahısını Redux-dan alaq, amma burada birbaşa çətinlik var, çünki Leaderboard componentinə props kimi gəlmir
-                    // Redux hook-u əlavə etməliyik, amma bu useEffect daxilindədir.
-                    // Ən təmizi: useEffect xaricində selectoru çağırmaq.
-                    // (Aşağıda düzəliş ediləcək)
-
-                    // Dost ID-ləri (useAppSelector ilə gələcək)
                     if (friends.length === 0) {
-                        setLeaders([]);
-                        setLoading(false);
-                        return;
+                        fetchedUsers = [];
+                    } else {
+                        const chunks: number[][] = [];
+                        for (let i = 0; i < friends.length; i += 10) {
+                            chunks.push(friends.slice(i, i + 10));
+                        }
+
+                        for (const chunk of chunks) {
+                            if (chunk.length === 0) {
+                                continue;
+                            }
+                            const friendQuery = query(usersRef, where('user_id', 'in', chunk));
+                            const snapshot = await getDocs(friendQuery);
+                            fetchedUsers.push(...snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser));
+                        }
+
+                        fetchedUsers.sort((a, b) => (b.high_score || 0) - (a.high_score || 0));
                     }
-
-                    // BATCH Fetching (Firestore IN limit: 30)
-                    const friendBatches = [];
-                    for (let i = 0; i < friends.length; i += 10) {
-                        friendBatches.push(friends.slice(i, i + 10));
-                    }
-
-                    const allFriendsDocs: FirestoreUser[] = [];
-
-                    for (const batch of friendBatches) {
-                        if (batch.length === 0) continue;
-                        const batchQ = query(
-                            usersRef,
-                            where('user_id', 'in', batch)
-                        );
-                        const batchSnap = await getDocs(batchQ);
-                        batchSnap.forEach(doc => {
-                            allFriendsDocs.push(doc.data() as FirestoreUser);
-                        });
-                    }
-
-                    // Client-side Sorting (All Time by default for Friends)
-                    allFriendsDocs.sort((a, b) => {
-                        return (b.high_score || 0) - (a.high_score || 0);
-                    });
-                    setLeaders(allFriendsDocs);
-                    setLoading(false);
-                    return; // Erkən qayıdış (Standard flow-dan fərqli)
                 } else {
-                    // Bütün Zamanların Ən Yüksək Xalı (azalan)
-                    q = query(usersRef, orderBy('high_score', 'desc'), limit(100));
+                    const allTimeQuery = query(usersRef, orderBy('high_score', 'desc'), limit(100));
+                    const snapshot = await getDocs(allTimeQuery);
+                    fetchedUsers = snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
                 }
 
-                const snapshot = await getDocs(q);
-
-                if (!isCancelled) {
-                    const fetchedUsers: FirestoreUser[] = [];
-                    snapshot.forEach(doc => {
-                        fetchedUsers.push(doc.data() as FirestoreUser);
-                    });
+                if (!cancelled) {
                     setLeaders(fetchedUsers);
                 }
-            } catch (error: any) {
-                if (!isCancelled) {
-                    console.error("Error fetching leaderboard:", error);
-                    if (error?.message?.includes('index')) {
-                        const msg = "FIRESTORE INDEX MISSING. Open browser console for the link.";
-                        console.error(msg);
-                        setError(msg);
-                    } else {
-                        setError(error.message || "Unknown error occurred");
-                    }
+            } catch (fetchError: unknown) {
+                if (!cancelled) {
+                    console.error('Leaderboard yükləmə xətası:', fetchError);
+                    setError(toErrorMessage(fetchError));
                 }
             } finally {
-                if (!isCancelled) setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         };
 
-        fetchLeaders();
-
+        void fetchLeaders();
         return () => {
-            isCancelled = true;
+            cancelled = true;
         };
-    }, [activeTab]);
+    }, [activeTab, friends]);
 
     return (
         <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center p-4 overflow-hidden">
-            {/* Başlıq (Header) */}
             <div className="w-full flex justify-between items-center mb-6">
                 <button
                     onClick={() => {
@@ -171,44 +139,39 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     <i className='bx bx-arrow-back'></i>
                 </button>
                 <h2 className="text-2xl font-black text-white uppercase tracking-wider">{t('leaderboard')}</h2>
-                <div className="w-6"></div> {/* Boşluq (Spacer) */}
+                <div className="w-6"></div>
             </div>
 
-            {/* Tablar (Tabs) */}
             <div className="w-full max-w-md flex bg-slate-800 rounded-xl p-1 mb-6 relative z-10">
                 <button
                     onClick={() => {
                         setActiveTab('weekly');
-                        WebApp.HapticFeedback.selectionChanged();
+                        WebApp.HapticFeedback.impactOccurred('light');
                     }}
-                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'weekly' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'
-                        }`}
+                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'weekly' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'}`}
                 >
                     {t('weekly')}
                 </button>
                 <button
                     onClick={() => {
                         setActiveTab('all_time');
-                        WebApp.HapticFeedback.selectionChanged();
+                        WebApp.HapticFeedback.impactOccurred('light');
                     }}
-                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'all_time' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'
-                        }`}
+                    className={`flex-1 py-2 rounded-lg font-bold text-sm uppercase transition-all ${activeTab === 'all_time' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400'}`}
                 >
                     {t('all_time')}
                 </button>
                 <button
                     onClick={() => {
                         setActiveTab('friends');
-                        WebApp.HapticFeedback.selectionChanged();
+                        WebApp.HapticFeedback.impactOccurred('light');
                     }}
-                    className={`px-4 py-2 rounded-lg font-bold text-lg transition-all flex items-center justify-center ${activeTab === 'friends' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-300'
-                        }`}
+                    className={`px-4 py-2 rounded-lg font-bold text-lg transition-all flex items-center justify-center ${activeTab === 'friends' ? 'bg-yellow-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
                 >
                     <i className='bx bxs-group'></i>
                 </button>
             </div>
 
-            {/* Həftəlik Geri Sayım (Weekly Countdown Timer) */}
             {activeTab === 'weekly' && timeLeft && (
                 <div className="w-full max-w-md flex justify-center -mt-5 mb-4 z-0">
                     <div className="bg-slate-900/50 backdrop-blur-sm px-4 py-1.5 rounded-b-xl border border-t-0 border-slate-700/50 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
@@ -219,51 +182,42 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                 </div>
             )}
 
-            {/* Siyahı (List) */}
             <div className="w-full max-w-md flex-1 overflow-y-auto hide-scrollbar space-y-3 pb-8">
                 {loading ? (
-                    <div className="text-center text-slate-500 mt-10 animate-pulse">
-                        {t('loading_data')}
-                    </div>
+                    <div className="text-center text-slate-500 mt-10 animate-pulse">{t('loading_data')}</div>
                 ) : error ? (
                     <div className="flex flex-col items-center justify-center mt-10 text-red-400 gap-2 px-6 text-center">
                         <i className='bx bx-error-circle text-4xl'></i>
-                        <p className="font-bold">Error Loading Leaderboard</p>
+                        <p className="font-bold">{t('leaderboard_error_title')}</p>
                         <p className="text-xs font-mono bg-slate-900/50 p-2 rounded border border-red-500/30 break-all">
-                            {error}
+                            {error === 'FIRESTORE_INDEX_MISSING' ? t('leaderboard_index_missing') : error}
                         </p>
                     </div>
                 ) : leaders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center mt-10 text-slate-500 gap-2">
                         <i className='bx bx-ghost text-4xl opacity-50'></i>
-                        <p>{activeTab === 'friends' ? "No friends yet" : "No records found"}</p>
+                        <p>{activeTab === 'friends' ? t('no_friends_yet') : t('no_records_found')}</p>
                     </div>
                 ) : (
-                    leaders.map((user, index) => (
+                    leaders.map((leader, index) => (
                         <div
-                            key={user.user_id}
-                            className={`flex items-center justify-between p-4 rounded-xl border border-slate-700 ${index === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-slate-800 border-yellow-500/50' : 'bg-slate-800/50'
-                                }`}
+                            key={leader.user_id}
+                            className={`flex items-center justify-between p-4 rounded-xl border border-slate-700 ${index === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-slate-800 border-yellow-500/50' : 'bg-slate-800/50'}`}
                         >
                             <div className="flex items-center gap-4">
-                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-full ${index === 0 ? 'bg-yellow-500 text-slate-900' :
-                                    index === 1 ? 'bg-slate-300 text-slate-900' :
-                                        index === 2 ? 'bg-amber-700 text-white' :
-                                            'bg-slate-700 text-slate-400'
-                                    }`}>
+                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-full ${index === 0 ? 'bg-yellow-500 text-slate-900' : index === 1 ? 'bg-slate-300 text-slate-900' : index === 2 ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-400'}`}>
                                     {index + 1}
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="font-bold text-white text-sm flex items-center gap-2">
-                                        <span className="text-lg">{getFlagEmoji(user.country_code)}</span>
-                                        {user.first_name || t('anonymous')}
+                                        <span className="text-lg">{getFlagEmoji(leader.country_code)}</span>
+                                        {leader.first_name || t('anonymous')}
                                     </span>
-                                    {/* <span className="text-xs text-slate-500">@{user.username}</span> */}
                                 </div>
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="font-mono font-black text-lg text-white">
-                                    {activeTab === 'weekly' ? (user.weekly_high_score || 0) : user.high_score}
+                                    {activeTab === 'weekly' ? (leader.weekly_high_score || 0) : leader.high_score}
                                 </span>
                                 <span className="text-[10px] uppercase text-slate-500 font-bold">{t('score')}</span>
                             </div>
@@ -271,20 +225,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     ))
                 )}
             </div>
-            {/* Ana Səhifə Düyməsi (Home Button) */}
+
             <div className="w-full max-w-md mt-4">
                 <button
                     onClick={() => {
-                        WebApp.HapticFeedback.impactOccurred('medium');
+                        WebApp.HapticFeedback.impactOccurred('light');
                         onClose();
                     }}
                     className="w-full py-4 bg-slate-700 hover:bg-slate-600 text-white font-bold text-lg rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                    <i className='bx bxs-home' ></i>
+                    <i className='bx bxs-home'></i>
                     {t('home')}
                 </button>
             </div>
-        </div >
+        </div>
     );
 };
 

@@ -6,22 +6,21 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { startGame } from '../game/gameSlice';
 import WebApp from '@twa-dev/sdk';
 import azcLogo from '../../assets/AZCash.logo.png';
+import { getTelegramUser } from '../../utils/telegram';
 
 const Home: React.FC = () => {
     const { t, i18n } = useTranslation();
     const dispatch = useAppDispatch();
     const { highScore, coins, dailyEarnings } = useAppSelector(state => state.game);
-    const user = WebApp.initDataUnsafe.user;
+    const user = getTelegramUser();
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
     const [currentTime, setCurrentTime] = useState<string>("");
 
-    // Limit kontrolü ve sayaç (Limit check and timer)
     const isLimitReached = dailyEarnings >= 1000;
 
     useEffect(() => {
-        // Timer always runs to show reset time
         const updateTimer = () => {
             const now = new Date();
 
@@ -33,7 +32,6 @@ const Home: React.FC = () => {
                 hour12: false
             });
 
-            // Clock Formatter (HH:mm)
             const clockFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'America/New_York',
                 hour: '2-digit',
@@ -53,12 +51,16 @@ const Home: React.FC = () => {
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 1000); // 1 sec for clock
+        const interval = setInterval(updateTimer, 1000);
         return () => clearInterval(interval);
     }, [t]);
 
     const handleStart = () => {
-        WebApp.HapticFeedback.impactOccurred('medium');
+        if (isLimitReached) {
+            WebApp.HapticFeedback.notificationOccurred('error');
+            return;
+        }
+        WebApp.HapticFeedback.impactOccurred('light');
         dispatch(startGame());
     };
 
@@ -83,7 +85,6 @@ const Home: React.FC = () => {
 
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-slate-900/90 backdrop-blur-sm overflow-hidden">
-            {/* Language Selector - Top Right */}
             <div className="absolute top-6 right-6 z-20">
                 <div className="p-1 bg-slate-800/80 backdrop-blur-md rounded-full border border-slate-700/50 flex gap-1 shadow-xl">
                     {languages.map((lang) => (
@@ -115,17 +116,16 @@ const Home: React.FC = () => {
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 border border-slate-600">
-                            {user?.first_name?.charAt(0) || 'T'}
+                            {user?.firstName?.charAt(0) || 'T'}
                         </div>
-                        <span className="font-bold text-white text-sm tracking-wide">{user?.first_name || 'Trader'}</span>
+                        <span className="font-bold text-white text-sm tracking-wide">{user?.firstName || t('default_trader')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/50 rounded-lg border border-slate-700/50">
-                        <span className="font-mon font-bold text-yellow-100 text-sm">{coins.toLocaleString()}</span>
+                        <span className="font-mono font-bold text-yellow-100 text-sm">{coins.toLocaleString()}</span>
                         <img src={azcLogo} alt="AZC" className="w-5 h-5 object-contain drop-shadow-md" />
                     </div>
                 </div>
 
-                {/* Status Badge */}
                 {isLimitReached && (
                     <div className="w-full py-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-200/90 rounded-xl mb-4 text-center text-xs backdrop-blur-sm">
                         <div className="font-bold mb-0.5">{t('score_only_mode')}</div>
@@ -133,8 +133,6 @@ const Home: React.FC = () => {
                     </div>
                 )}
 
-                {/* Invite Friends Button */}
-                {/* Invite Friends Button */}
                 <button
                     onClick={() => {
                         WebApp.HapticFeedback.impactOccurred('light');
@@ -147,13 +145,12 @@ const Home: React.FC = () => {
                 </button>
 
                 {showInviteModal && (
-                    <InviteModal
-                        onClose={() => setShowInviteModal(false)}
-                        inviteLink={`https://t.me/candle_wick_bot/play?startapp=${user?.id}`}
-                    />
+                        <InviteModal
+                            onClose={() => setShowInviteModal(false)}
+                            inviteLink={`https://t.me/candle_wick_bot/play?startapp=${user?.id}`}
+                        />
                 )}
 
-                {/* Start Button */}
                 <button
                     onClick={handleStart}
                     className={`group w-full py-4 font-black text-xl rounded-2xl shadow-lg transition-all transform active:scale-95 mb-4 relative overflow-hidden
@@ -187,9 +184,7 @@ const Home: React.FC = () => {
                 </div>
             </div>
 
-            {/* High Score & News Area */}
             <div className="w-4/5 max-w-sm mt-6 flex items-stretch justify-between gap-4">
-                {/* High Score (Left) - Fixed Width Logic */}
                 <div className="flex-[2] flex flex-col justify-center items-start bg-slate-800/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-700/50">
                     <p className="text-slate-500 text-[9px] uppercase tracking-widest font-black mb-1 flex items-center gap-1">
                         <i className='bx bxs-trophy text-slate-600'></i>
@@ -198,7 +193,6 @@ const Home: React.FC = () => {
                     <p className="text-2xl font-mono font-black text-white tracking-tight leading-none">{highScore}</p>
                 </div>
 
-                {/* News Button (Right) */}
                 <button
                     onClick={handleNewsClick}
                     className="group relative w-20 flex-shrink-0 flex items-center justify-center bg-blue-600/10 backdrop-blur-md rounded-2xl border border-blue-500/30 hover:bg-blue-600/20 transition-all duration-300 active:scale-95 shadow-lg shadow-blue-500/5"
@@ -208,7 +202,6 @@ const Home: React.FC = () => {
                 </button>
             </div>
 
-            {/* Footer: Timer & Copyright */}
             <div className="absolute bottom-6 flex flex-col items-center gap-3 w-full z-10 pointer-events-none">
                 <div className="px-4 py-1.5 bg-slate-900/60 backdrop-blur-md rounded-full border border-white/5 shadow-sm">
                     <p className="text-slate-400 font-mono text-xs font-bold tracking-widest flex items-center gap-2">

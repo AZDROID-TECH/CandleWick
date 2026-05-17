@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import WebApp from '@twa-dev/sdk';
 import { Provider } from 'react-redux';
 import { store } from './app/store';
 import { useAppSelector } from './app/hooks';
@@ -12,11 +11,10 @@ import ResumeOverlay from './features/ui/ResumeOverlay';
 import { useAuth } from './hooks/useAuth';
 
 import { useScoreSync } from './hooks/useScoreSync';
+import { getTelegramLanguage } from './utils/telegram';
 
-// Wrapper component to use Redux hooks
 const GameApp = () => {
     const { isPlaying, isGameOver, isLoading, isResuming } = useAppSelector(state => state.game);
-    // Initialize Auth and Data Sync
     useAuth();
     useScoreSync();
 
@@ -41,15 +39,7 @@ function App() {
     const { i18n } = useTranslation();
 
     useEffect(() => {
-        const userLang = WebApp.initDataUnsafe.user?.language_code;
-        if (userLang && (userLang === 'en' || userLang === 'az')) {
-            i18n.changeLanguage(userLang);
-        } else {
-            i18n.changeLanguage('en');
-        }
-
-        // Expand to full screen
-        WebApp.expand();
+        i18n.changeLanguage(getTelegramLanguage());
     }, [i18n]);
 
     return (

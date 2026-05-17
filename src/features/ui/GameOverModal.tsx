@@ -1,110 +1,105 @@
-import { startGame, continueGame, claimDoubleReward, resetGame } from '../game/gameSlice';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import WebApp from '@twa-dev/sdk';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import { claimDoubleReward, continueGame, resetGame, startGame } from '../game/gameSlice';
+
+const ADSGRAM_SCRIPT_ID = 'adsgram-sdk-script';
+
+const loadAdsgramScript = async () => {
+    if (window.Adsgram) {
+        return;
+    }
+
+    const existing = document.getElementById(ADSGRAM_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existing && window.Adsgram) {
+        return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+        const script = existing || document.createElement('script');
+        if (!existing) {
+            script.id = ADSGRAM_SCRIPT_ID;
+            script.src = 'https://adsgram.ai/js/adsgram.js?v=1';
+            script.async = true;
+            document.body.appendChild(script);
+        }
+
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Adsgram SDK yüklənmədi'));
+    });
+};
 
 const GameOverModal: React.FC = () => {
     const { t } = useTranslation();
     const dispatch = useAppDispatch();
     const { score, highScore, adWatchCount } = useAppSelector(state => state.game);
 
-    // Adsgram Məntiqi
     const showAdsgramAd = async (blockId: string | undefined, onReward: () => void) => {
-        const loadScript = () => {
-            return new Promise<void>((resolve, reject) => {
-                if ((window as any).Adsgram) {
-                    resolve();
-                    return;
-                }
-                const script = document.createElement('script');
-                script.src = "https://adsgram.ai/js/adsgram.js?v=1";
-                script.async = true;
-                script.onload = () => resolve();
-                script.onerror = () => reject(new Error("Adsgram script failed to load"));
-                document.body.appendChild(script);
-            });
-        };
-
         try {
-            await loadScript();
-            if (!(window as any).Adsgram) throw new Error("Adsgram object not found after load");
+            await loadAdsgramScript();
+            if (!window.Adsgram) {
+                throw new Error('Adsgram obyekt tapılmadı');
+            }
 
             if (!blockId) {
-                console.error("Ad Block ID is missing");
                 WebApp.showAlert(t('ad_config_missing'));
                 return;
             }
 
-            const AdController = (window as any).Adsgram.init({
-                blockId: blockId,
-                debug: false // Production rejimi
+            const adController = window.Adsgram.init({
+                blockId,
+                debug: false
             });
 
-            const startTime = Date.now();
+            const startedAt = Date.now();
+            await adController.show();
 
-            AdController.show().then(() => {
-                // Reklamın çox tez bağlanıb-bağlanmadığını yoxlayın (məsələn < 15 saniyə)
-                // Bəzi reklamlar qısa ola bilər, lakin 15s dərhal keçmələri aşkar etmək üçün təhlükəsiz həddir.
-                const elapsed = Date.now() - startTime;
+            const watchedMs = Date.now() - startedAt;
+            if (watchedMs < 15000) {
+                WebApp.HapticFeedback.notificationOccurred('error');
+                WebApp.showAlert(t('ad_warning_short'));
+                return;
+            }
 
-                if (elapsed < 15000) {
-                    WebApp.HapticFeedback.notificationOccurred('error');
-                    // Sadə bir xəbərdarlıq və ya popup istifadə edirik
-                    WebApp.showAlert(t('ad_warning_short'));
-                    return;
-                }
-
-                // İstifadəçi reklamı sona qədər izlədi
-                onReward();
-            }).catch((result: any) => {
-                // İstifadəçi reklamı keçdi və ya xəta aldı
-                console.log('Adsgram error or skip:', result);
-            });
-
-        } catch (error) {
-            console.error(error);
-            WebApp.showAlert(t('ad_load_error') + ": " + (error as Error).message);
+            onReward();
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : t('ad_load_error');
+            console.error('Adsgram xətası:', error);
+            WebApp.showAlert(`${t('ad_load_error')}: ${message}`);
         }
     };
 
-    // Monetag Məntiqi
-    const showMonetagAd = (onReward: () => void) => {
-        const showAdFn = (window as any).show_10324597;
-
-        if (typeof showAdFn !== 'function') {
-            console.error("Monetag SDK (show_10324597) yüklənməyib və ya rədd edilib.");
+    const showMonetagAd = async (onReward: () => void) => {
+        const showAd = window.show_10324597;
+        if (typeof showAd !== 'function') {
             WebApp.showAlert(t('ad_load_error'));
             return;
         }
 
-        WebApp.HapticFeedback.impactOccurred('light');
-
-        // Varsayılan Rewarded Interstitial formatı
-        showAdFn().then(() => {
-            // Monetag Promise reklam bitəndə/bağlananda həll olunur
+        try {
+            WebApp.HapticFeedback.impactOccurred('light');
+            await showAd();
             onReward();
-        }).catch((err: any) => {
-            console.error("Monetag Reklam Xətası:", err);
-        });
+        } catch (error: unknown) {
+            console.error('Monetag xətası:', error);
+        }
     };
 
     const handleContinue = () => {
-        // "Davam Et" üçün Monetag istifadə et
-        showMonetagAd(() => {
+        void showMonetagAd(() => {
             dispatch(continueGame());
         });
     };
 
     const handleRestart = () => {
-        WebApp.HapticFeedback.impactOccurred('medium');
+        WebApp.HapticFeedback.impactOccurred('light');
         dispatch(startGame());
     };
 
     const handleDoubleClaim = () => {
-        // "2x Mükafat" üçün Adsgram istifadə et
         const blockId = import.meta.env.VITE_TELEGRAM_BLOCK_ID_2X;
-        showAdsgramAd(blockId, () => {
+        void showAdsgramAd(blockId, () => {
             WebApp.HapticFeedback.notificationOccurred('success');
             dispatch(claimDoubleReward());
         });
@@ -137,7 +132,6 @@ const GameOverModal: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                    {/* 1. Dərhal Yenidən Başlat */}
                     <button
                         onClick={handleRestart}
                         className="w-full py-4 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-black text-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
@@ -146,7 +140,6 @@ const GameOverModal: React.FC = () => {
                         {t('restart')}
                     </button>
 
-                    {/* 2. Reklam İzlə (Davam Et) */}
                     {remainingAds > 0 ? (
                         <button
                             onClick={handleContinue}
@@ -161,9 +154,7 @@ const GameOverModal: React.FC = () => {
                         </button>
                     )}
 
-                    {/* 3. Seçim: Çıxış vs 2x Mükafat */}
                     <div className="flex gap-3 mt-2">
-                        {/* Çıxış / 1x Mükafat */}
                         <button
                             onClick={() => {
                                 WebApp.HapticFeedback.impactOccurred('light');
@@ -174,7 +165,6 @@ const GameOverModal: React.FC = () => {
                             {t('claim_exit')}
                         </button>
 
-                        {/* 2x Mükafat */}
                         <button
                             onClick={handleDoubleClaim}
                             className="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-colors"
