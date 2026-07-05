@@ -524,7 +524,6 @@ const GameCanvas: React.FC = () => {
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
         ctx.fillRect(x, y, CANDLE_WIDTH, CANDLE_HEIGHT);
-        ctx.fillRect(x, y, CANDLE_WIDTH, CANDLE_HEIGHT);
         ctx.shadowBlur = 0;
 
         // Opaklığı bərpa et
@@ -551,6 +550,11 @@ const GameCanvas: React.FC = () => {
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
+        // "update" funksiyası hər renderdə yenidən yaranır; onu asılılığa salsaq
+        // animasiya döngüsü hər renderdə yenidən başlayardı. Effekt yalnız oyun
+        // vəziyyəti dəyişəndə (isPlaying/isGameOver) işə düşməlidir; update cari
+        // vəziyyəti ref-lər üzərindən oxuyur, ona görə köhnə closure problemi yoxdur.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying, isGameOver]);
 
     // İlkin Çəkim

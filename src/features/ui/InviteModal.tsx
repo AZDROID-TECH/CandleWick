@@ -86,8 +86,9 @@ const InviteModal: React.FC<InviteModalProps> = ({ onClose, inviteLink }) => {
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+                    aria-label={t('close')}
                 >
-                    <i className='bx bx-x text-3xl'></i>
+                    <i className='bx bx-x text-3xl' aria-hidden="true"></i>
                 </button>
 
                 <h2 className="text-2xl font-black text-center text-white mb-2 tracking-tight">

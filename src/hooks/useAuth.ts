@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { signInAnonymously, User } from 'firebase/auth';
+import { signInAnonymously, signInWithCustomToken, User, UserCredential } from 'firebase/auth';
 import { arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import auth from '../firebase/auth';
 import db from '../firebase/db';
 import { useAppDispatch } from '../app/hooks';
 import { setHighScore, setUserData } from '../features/game/gameSlice';
-import { FirestoreUser } from '../types/firestore';
+import { FirestoreUser, firestoreUserSchema } from '../types/firestore';
 import { getCurrentWeekId, getUSDateString } from '../utils/dateUtils';
-import { getTelegramStartParam, getTelegramUser } from '../utils/telegram';
+import { getTelegramInitData, getTelegramStartParam, getTelegramUser } from '../utils/telegram';
+import { isBackendEnabled, requestCustomToken } from '../utils/backend';
 
 const parseReferrerId = (startParam: string | undefined, userId: number): number | undefined => {
     if (!startParam) {
@@ -49,11 +50,23 @@ export const useAuth = () => {
             let currentUserData: Partial<FirestoreUser> | null = null;
 
             try {
-                const userCredential = await signInAnonymously(auth);
+                const telegramUser = getTelegramUser();
+
+                // Çift-mod giriş: backend aktivdirsə Custom Token (uid = telegram_id),
+                // əks halda köhnə anonim rejim. Token alınmasa da anonim rejimə keçir ki,
+                // deploy tamamlanana qədər canlı oyun pozulmasın.
+                let userCredential: UserCredential;
+                if (isBackendEnabled() && telegramUser) {
+                    const token = await requestCustomToken(getTelegramInitData());
+                    userCredential = token
+                        ? await signInWithCustomToken(auth, token)
+                        : await signInAnonymously(auth);
+                } else {
+                    userCredential = await signInAnonymously(auth);
+                }
                 setUser(userCredential.user);
                 const authUid = userCredential.user.uid;
 
-                const telegramUser = getTelegramUser();
                 if (!telegramUser) {
                     currentUserData = {
                         total_azc: 0,
@@ -67,6 +80,31 @@ export const useAuth = () => {
                     return;
                 }
 
+                // Backend (server-managed) rejim: hesab yaradılması, referral və gündəlik/həftəlik
+                // sıfırlamalar serverdədir (/api/session upsert + /api/submit-score). İstemci burada
+                // YALNIZ oxuyur — bu, sərtləşdirilmiş Firestore rules ilə (kritik sahələr admin-only) uyğundur.
+                const serverManaged = isBackendEnabled() && !userCredential.user.isAnonymous;
+                if (serverManaged) {
+                    const managedRef = doc(db, 'users', telegramUser.id.toString());
+                    const managedSnap = await getDoc(managedRef);
+                    if (managedSnap.exists()) {
+                        const parsedManaged = firestoreUserSchema.safeParse(managedSnap.data());
+                        currentUserData = (parsedManaged.success ? parsedManaged.data : managedSnap.data()) as FirestoreUser;
+                    } else {
+                        // Server hələ upsert etməyibsə minimal default; sonrakı yükləmədə real data gələcək.
+                        currentUserData = {
+                            total_azc: 0,
+                            daily_earnings: 0,
+                            daily_high_score: 0,
+                            weekly_high_score: 0,
+                            last_daily_reset: getUSDateString(),
+                            current_week_id: getCurrentWeekId(),
+                            friends: []
+                        };
+                    }
+                    return;
+                }
+
                 const userRef = doc(db, 'users', telegramUser.id.toString());
                 const userSnap = await getDoc(userRef);
                 const currentUSDate = getUSDateString();
@@ -74,7 +112,13 @@ export const useAuth = () => {
                 const referrerId = parseReferrerId(getTelegramStartParam(), telegramUser.id);
 
                 if (userSnap.exists()) {
-                    const data = userSnap.data() as FirestoreUser;
+                    // Sərhəd doğrulaması: Firestore sənədini oxumadan əvvəl Zod ilə yoxla.
+                    // Uğursuzluqda (gözlənilməz format) köhnə davranışı qoruyub xam datanı istifadə et.
+                    const parsedUser = firestoreUserSchema.safeParse(userSnap.data());
+                    if (!parsedUser.success) {
+                        console.warn('Firestore istifadəçi sənədi doğrulanmadı, xam data istifadə olunur:', parsedUser.error);
+                    }
+                    const data = (parsedUser.success ? parsedUser.data : userSnap.data()) as FirestoreUser;
                     const storedResetDate = data.last_daily_reset || '';
                     const storedWeekId = data.current_week_id || '';
                     const shouldResetDaily = storedResetDate !== currentUSDate;

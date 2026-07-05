@@ -18,3 +18,29 @@ export interface FirestoreUser {
     created_at: string;
     last_login: string;
 }
+
+import { z } from 'zod';
+
+// Firestore sərhəd doğrulaması: köhnə/natamam sənədləri itirməmək üçün
+// bütün sahələr optional; ədədi sahələr coerce edilir; naməlum sahələr saxlanılır.
+// Məqsəd — tam sənədi rədd etmək deyil, tip pozğunluğuna qarşı təhlükəsiz oxumaq.
+export const firestoreUserSchema = z.object({
+    auth_uid: z.string().optional(),
+    user_id: z.coerce.number().optional(),
+    username: z.string().optional(),
+    first_name: z.string().optional(),
+    total_azc: z.coerce.number().optional(),
+    high_score: z.coerce.number().optional(),
+    referrals: z.array(z.coerce.number()).optional(),
+    referred_by: z.coerce.number().optional(),
+    friends: z.array(z.coerce.number()).optional(),
+    completed_tasks: z.array(z.string()).optional(),
+    daily_earnings: z.coerce.number().optional(),
+    daily_high_score: z.coerce.number().optional(),
+    weekly_high_score: z.coerce.number().optional(),
+    last_daily_reset: z.string().optional(),
+    current_week_id: z.string().optional(),
+    country_code: z.string().optional(),
+    created_at: z.string().optional(),
+    last_login: z.string().optional(),
+}).passthrough();

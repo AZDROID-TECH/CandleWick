@@ -44,6 +44,12 @@ export const getTelegramUser = (): TelegramUserProfile | null => {
     return toTelegramUserProfile(WebApp.initDataUnsafe.user);
 };
 
+// Backend HMAC doğrulaması üçün xam initData string-i (initDataUnsafe deyil).
+// Serverdə bot token ilə imza yoxlanılır; boş olarsa istemci anonim rejimə keçir.
+export const getTelegramInitData = (): string => {
+    return typeof WebApp.initData === 'string' ? WebApp.initData : '';
+};
+
 export const getTelegramStartParam = (): string | undefined => {
     const value = WebApp.initDataUnsafe.start_param;
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;

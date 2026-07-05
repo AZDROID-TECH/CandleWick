@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// =====================================================================
+// SƏRTLƏŞDİRİLMİŞ (HARDENED) QAYDALAR — YALNIZ backend deploy edilib,
+// VITE_USE_BACKEND=1 olub və oyun Telegram-da yoxlanandan SONRA tətbiq et.
+// Tətbiq: bu faylın məzmununu firestore.rules-a köçür və `firebase deploy --only firestore:rules`.
+//
+// Model: kritik/iqtisadi sahələr YALNIZ server (Admin SDK) tərəfindən yazılır
+// (Admin SDK bu qaydalardan yan keçir). İstemci yalnız oxuyur və yalnız
+// iqtisadi-olmayan sahələri (profil, tapşırıqlar) dəyişə bilər.
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userDocId} {
+      // Yalnız daxil olmuş istifadəçilər oxuya bilər (anonim skreypinqi azaldır;
+      // liderlik cədvəli üçün oxu lazımdır, ona görə tam bağlamırıq).
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Sənəd sahibi: custom token-də auth.uid == telegram_id == auth_uid.
+      function isOwner() {
+        return isSignedIn()
+          && resource.data.auth_uid == request.auth.uid;
+      }
+
+      // İqtisadi/reytinq sahələri istemcidən DƏYİŞMƏMƏLİDİR (yalnız Admin SDK yazır).
+      function economyUnchanged() {
+        return request.resource.data.total_azc == resource.data.total_azc
+          && request.resource.data.high_score == resource.data.high_score
+          && request.resource.data.weekly_high_score == resource.data.weekly_high_score
+          && request.resource.data.daily_high_score == resource.data.daily_high_score
+          && request.resource.data.daily_earnings == resource.data.daily_earnings
+          && request.resource.data.last_daily_reset == resource.data.last_daily_reset
+          && request.resource.data.current_week_id == resource.data.current_week_id
+          && request.resource.data.referred_by == resource.data.referred_by
+          && request.resource.data.referrals == resource.data.referrals
+          && request.resource.data.friends == resource.data.friends
+          && request.resource.data.user_id == resource.data.user_id
+          && request.resource.data.auth_uid == resource.data.auth_uid;
+      }
+
+      allow read: if isSignedIn();
+
+      // Yaradılış: yalnız sahib, sıfır iqtisadi dəyərlərlə (şişirdilmiş hesab qarşısını al).
+      allow create: if isSignedIn()
+        && request.resource.data.auth_uid == request.auth.uid
+        && request.resource.data.user_id is int
+        && request.resource.data.total_azc == 0
+        && request.resource.data.high_score == 0
+        && request.resource.data.daily_earnings == 0
+        && request.resource.data.weekly_high_score == 0
+        && request.resource.data.daily_high_score == 0;
+
+      // Yeniləmə: yalnız sahib və yalnız iqtisadi-olmayan sahələr (profil/tapşırıq).
+      allow update: if isOwner() && economyUnchanged();
+
+      allow delete: if false;
+    }
+  }
+}

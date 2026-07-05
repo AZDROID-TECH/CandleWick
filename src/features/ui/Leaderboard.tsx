@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import WebApp from '@twa-dev/sdk';
 import db from '../../firebase/db';
-import { FirestoreUser } from '../../types/firestore';
+import { FirestoreUser, firestoreUserSchema } from '../../types/firestore';
+import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import { useAppSelector } from '../../app/hooks';
 import { formatTimeRemaining, getCurrentWeekId, getTimeUntilWeeklyReset } from '../../utils/dateUtils';
 
@@ -15,6 +16,14 @@ type LeaderboardTab = 'weekly' | 'all_time' | 'friends';
 type LeaderboardCache = Record<LeaderboardTab, FirestoreUser[] | null>;
 
 const QUERY_TIMEOUT_MS = 12000;
+
+// Sərhəd doğrulaması: Firestore sıralama sənədlərini Zod ilə yoxla.
+// Permissive sxem — etibarlı sətirlər dəyişməz keçir, ədədlər coerce olunur.
+const mapUserDocs = (docs: QueryDocumentSnapshot[]): FirestoreUser[] =>
+    docs.map(docSnapshot => {
+        const parsed = firestoreUserSchema.safeParse(docSnapshot.data());
+        return (parsed.success ? parsed.data : docSnapshot.data()) as FirestoreUser;
+    });
 
 const getFlagEmoji = (countryCode?: string) => {
     if (!countryCode) return '🏳️';
@@ -99,7 +108,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     limit(100)
                 );
                 const snapshot = await withTimeout(getDocs(weeklyQuery), QUERY_TIMEOUT_MS);
-                return snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
+                return mapUserDocs(snapshot.docs);
             }
 
             if (tab === 'friends') {
@@ -120,7 +129,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
 
                     const friendQuery = query(usersRef, where('user_id', 'in', chunk));
                     const snapshot = await withTimeout(getDocs(friendQuery), QUERY_TIMEOUT_MS);
-                    friendRows.push(...snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser));
+                    friendRows.push(...mapUserDocs(snapshot.docs));
                 }
 
                 friendRows.sort((a, b) => (b.high_score || 0) - (a.high_score || 0));
@@ -129,7 +138,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
 
             const allTimeQuery = query(usersRef, orderBy('high_score', 'desc'), limit(100));
             const snapshot = await withTimeout(getDocs(allTimeQuery), QUERY_TIMEOUT_MS);
-            return snapshot.docs.map(docSnapshot => docSnapshot.data() as FirestoreUser);
+            return mapUserDocs(snapshot.docs);
         };
 
         const run = async () => {
@@ -171,6 +180,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
         return () => {
             cancelled = true;
         };
+        // "cache" oxunur amma asılılığa salınmır: effektin özü setCache çağırır,
+        // asılılığa salsaq hər cache yeniləməsi effekti yenidən işə salıb sonsuz
+        // yenidən-yükləmə döngüsü yaradardı. Yalnız tab/dostlar/refresh dəyişəndə
+        // yenilənməlidir.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, friends, refreshTick]);
 
     return (
@@ -182,8 +196,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                         onClose();
                     }}
                     className="text-white text-2xl"
+                    aria-label={t('back')}
                 >
-                    <i className='bx bx-arrow-back'></i>
+                    <i className='bx bx-arrow-back' aria-hidden="true"></i>
                 </button>
                 <h2 className="text-2xl font-black text-white uppercase tracking-wider">{t('leaderboard')}</h2>
                 <div className="w-6"></div>

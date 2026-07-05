@@ -6,6 +6,8 @@ const resources = {
         translation: {
             "start_game": "Start Game",
             "leaderboard": "Leaderboard",
+            "close": "Close",
+            "back": "Back",
             "market": "Market",
             "earn_money": "Earn Money Systems",
             "coming_soon": "Coming Soon",
@@ -60,6 +62,8 @@ const resources = {
         translation: {
             "start_game": "Oyuna Başla",
             "leaderboard": "Liderlər",
+            "close": "Bağla",
+            "back": "Geri",
             "market": "Mağaza",
             "earn_money": "Pul Qazanma Sistemləri",
             "coming_soon": "Tezliklə",

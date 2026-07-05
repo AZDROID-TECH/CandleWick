@@ -29,7 +29,7 @@ const initialState: GameState = {
     dailyEarnings: 0,
     dailyHighScore: 0,
     weeklyHighScore: 0,
-    lastDailyReset: new Date().toISOString(), // Varsayılan: indi
+    lastDailyReset: "", // Firestore yüklənənə qədər boş (US tarix formatı ilə doldurulur)
     currentWeekId: "",
     adWatchCount: 0,
     isLoading: true,
